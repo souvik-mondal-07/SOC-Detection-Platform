@@ -1,5 +1,7 @@
 # Architecture Overview (Step 1)
 
+This page describes the code as built in Step 1. The full design is in [system-architecture.md](system-architecture.md). MongoDB models, repositories and indexes (Step 3) are described in [database.md](database.md).
+
 Lightweight SOC monitoring platform: a FastAPI backend and a React + TypeScript frontend, with MongoDB planned for a later step.
 
 ## Layout

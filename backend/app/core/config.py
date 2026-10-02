@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     # Comma-separated string (simple to set in .env on any OS)
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
+    # MongoDB. Defaults suit a local, unauthenticated development instance.
+    # Real credentials belong in the git-ignored .env file, never in code.
+    mongodb_uri: str = "mongodb://localhost:27017"
+    mongodb_database: str = "soc_detection_platform"
+    mongodb_server_selection_timeout_ms: int = 3000
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property
