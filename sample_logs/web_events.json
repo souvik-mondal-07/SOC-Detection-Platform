@@ -1,0 +1,98 @@
+[
+  {
+    "timestamp": "2026-10-02T12:00:01Z",
+    "source": "web_application",
+    "event_type": "web",
+    "action": "get_request",
+    "status": "success",
+    "source_ip": "192.168.1.40",
+    "message": "GET / 200",
+    "metadata": {
+      "synthetic": true,
+      "http_method": "GET",
+      "url_path": "/",
+      "http_status": 200,
+      "user_agent": "synthetic-browser/1.0"
+    }
+  },
+  {
+    "timestamp": "2026-10-02T12:00:09Z",
+    "source": "web_application",
+    "event_type": "web",
+    "action": "get_request",
+    "status": "success",
+    "source_ip": "192.168.1.40",
+    "message": "GET /products 200",
+    "metadata": {
+      "synthetic": true,
+      "http_method": "GET",
+      "url_path": "/products",
+      "http_status": 200,
+      "user_agent": "synthetic-browser/1.0"
+    }
+  },
+  {
+    "timestamp": "2026-10-02T12:00:20Z",
+    "source": "web_application",
+    "event_type": "web",
+    "action": "get_request",
+    "status": "failed",
+    "source_ip": "192.168.1.41",
+    "message": "GET /missing-page 404",
+    "metadata": {
+      "synthetic": true,
+      "http_method": "GET",
+      "url_path": "/missing-page",
+      "http_status": 404,
+      "user_agent": "synthetic-browser/1.0"
+    }
+  },
+  {
+    "timestamp": "2026-10-02T12:00:22Z",
+    "source": "web_application",
+    "event_type": "web",
+    "action": "get_request",
+    "status": "failed",
+    "source_ip": "192.168.1.41",
+    "message": "GET /old-link 404",
+    "metadata": {
+      "synthetic": true,
+      "http_method": "GET",
+      "url_path": "/old-link",
+      "http_status": 404,
+      "user_agent": "synthetic-browser/1.0"
+    }
+  },
+  {
+    "timestamp": "2026-10-02T12:00:25Z",
+    "source": "web_application",
+    "event_type": "web",
+    "action": "get_request",
+    "status": "failed",
+    "source_ip": "192.168.1.41",
+    "message": "GET /admin 403",
+    "metadata": {
+      "synthetic": true,
+      "http_method": "GET",
+      "url_path": "/admin",
+      "http_status": 403,
+      "user_agent": "synthetic-scanner/0.1"
+    }
+  },
+  {
+    "timestamp": "2026-10-02T12:00:31Z",
+    "source": "web_application",
+    "event_type": "web",
+    "action": "post_request",
+    "status": "failed",
+    "source_ip": "192.168.1.41",
+    "message": "POST /login 401",
+    "metadata": {
+      "synthetic": true,
+      "http_method": "POST",
+      "url_path": "/login",
+      "http_status": 401,
+      "user_agent": "synthetic-scanner/0.1"
+    }
+  }
+]

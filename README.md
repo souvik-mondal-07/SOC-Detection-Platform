@@ -2,7 +2,7 @@
 
 Rule-Based Security Event Detection and Alerting System for Automated Identification of Suspicious Activities.
 
-**Status: Step 3 (MongoDB integration and data models).** Backend health check (including database status), MongoDB connection, data models, repositories and indexes, plus a starter dashboard. Dashboard figures are sample placeholders, not real telemetry. There is no authentication, log ingestion or detection logic yet, and no API for events, alerts or rules.
+**Status: Step 6 (detection engine) plus a multi-page frontend.** The backend accepts security events as JSON or as raw logs (Linux auth, web access, Windows event, network), validates and normalizes them, stores them in MongoDB, and returns them through a small read API. A rule-based detection engine can be run on stored events on request; it returns detection results only. There is no authentication or alert creation yet.
 
 **Stack:** FastAPI, React + TypeScript + Vite, Tailwind CSS, MongoDB (PyMongo), Pytest. Recharts comes in a later step.
 
@@ -76,7 +76,7 @@ Expected health response:
 
 If MongoDB is not reachable the endpoint still answers HTTP 200 with `"status": "degraded"` and `"database": "unavailable"` (it can take about 3 seconds to answer, the configured timeout). Collections and indexes are created automatically at startup when MongoDB is available. To run that step manually: `python -m app.repositories.initialization` (from `backend`).
 
-The dashboard top bar shows "Backend online" when the frontend can reach this endpoint.
+The top bar shows "Backend online" when the frontend can reach this endpoint.
 
 ## 4. Tests
 
@@ -86,7 +86,7 @@ cd backend
 python -m pytest
 ```
 
-The tests use an in-memory MongoDB stand-in and need no running database. Two optional integration tests (skipped by default) check a real MongoDB using a throwaway database:
+The tests (about 180) use an in-memory MongoDB stand-in and need no running database. Two optional integration tests (skipped by default) check a real MongoDB using a throwaway database:
 
 ```powershell
 $env:RUN_MONGO_INTEGRATION = "1"; python -m pytest tests/test_mongo_integration.py
@@ -98,6 +98,25 @@ Frontend type-check and production build:
 cd frontend
 npm run build
 ```
+
+## Try the event ingestion API
+
+With MongoDB and the backend running, open a second PowerShell window in `backend`:
+
+```powershell
+$base = "http://localhost:8000/api/v1"
+
+# Load a synthetic sample file (JSON array) in one batch request
+$events = Get-Content "..\sample_logs\failed_auth.json" -Raw | ConvertFrom-Json
+$batch  = @{ events = @($events) } | ConvertTo-Json -Depth 10
+Invoke-RestMethod -Method Post -Uri "$base/events/batch" -ContentType "application/json" -Body $batch
+
+# Read the newest failed authentication events back
+(Invoke-RestMethod -Uri "$base/events?event_type=authentication&status=failed&limit=20").events |
+    Format-Table event_id, timestamp, status, username, source_ip
+```
+
+Endpoints: `POST /api/v1/events`, `POST /api/v1/events/batch`, `GET /api/v1/events`, `GET /api/v1/events/{event_id}`. Single-event, filter, 404 and validation-error examples are in [docs/architecture/event-ingestion.md](docs/architecture/event-ingestion.md). Interactive API docs: http://localhost:8000/docs.
 
 ## Seed development data (optional, manual only)
 
@@ -119,6 +138,78 @@ python ..\scripts\seed_database.py
 
 `.env` files are git-ignored. Only the `.env.example` files are committed, and they contain no secrets.
 
+## Supported log formats (Step 5)
+
+Raw logs can be sent to `POST /api/v1/events/parse` (one log) or `POST /api/v1/events/parse/batch` (up to 500) with a `source_type`. Each is parsed, normalized with the Step 4 rules and stored through the existing ingestion pipeline.
+
+| `source_type` | Format |
+| --- | --- |
+| `linux_auth` | sshd/PAM syslog lines: failed, accepted, invalid user, blocked |
+| `web_application` | Common Log Format web access lines |
+| `windows_event` | Simplified Windows Event JSON (Event ID 4624, 4625) |
+| `network` | JSON or CSV connection records |
+
+Synthetic samples are in `sample_logs/raw/`. Parsing does not detect anything; see [docs/architecture/log-parsing.md](docs/architecture/log-parsing.md).
+
+## Detection engine (Step 6)
+
+Stored events are evaluated against data-driven rules from the `detection_rules` collection. The engine answers "did this event match a rule?" and returns a structured result. It does **not** create alerts (that is a later step) and does not run automatically after ingestion; you call it explicitly.
+
+Create the five initial rules once (manual only, safe to repeat, never runs on startup). From `backend` with the venv active:
+
+```powershell
+python ..\scripts\seed_detection_rules.py
+```
+
+| Rule | Severity | Detects |
+| --- | --- | --- |
+| `AUTH-001` | high | 5 failed authentication events from one source IP within 5 minutes |
+| `AUTH-002` | medium | Failed login for a nonexistent user (parser metadata `reason = invalid_user`) |
+| `AUTH-003` | high | Successful login after 3 or more failures from the same IP within 10 minutes |
+| `WEB-001` | medium | 10 HTTP 403/404 responses to one source IP within 5 minutes |
+| `NET-001` | medium | One source IP reaching 10 distinct destination ports within 5 minutes |
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/detection/evaluate/EVENT_ID" -Method POST
+```
+
+`POST /api/v1/detection/evaluate/{event_id}` evaluates one event and `POST /api/v1/detection/evaluate` takes `{"event_ids": [...]}` (up to 500). Matches are indicators of suspicious activity that need investigation, not proof of an attack. See [docs/architecture/detection-engine.md](docs/architecture/detection-engine.md).
+
+## Detection Rule Management (Step 7)
+
+Detection rules are managed through `/api/v1/rules`. MongoDB (`detection_rules`) is the single source of truth: the detection engine reads the enabled rules from it on every evaluation, so creating, editing, disabling or deleting a rule takes effect immediately with no restart.
+
+| Method and path | Purpose |
+| --- | --- |
+| `GET /api/v1/rules` | List rules. Filters: `category`, `severity`, `enabled`, `name`. Paging: `page`, `limit` (max 100) |
+| `GET /api/v1/rules/{rule_id}` | Full rule configuration |
+| `POST /api/v1/rules` | Create a rule (`201`; duplicate `rule_id` gives `409`) |
+| `PUT /api/v1/rules/{rule_id}` | Update name, description, category, severity, enabled or conditions (`rule_id` is immutable) |
+| `PATCH /api/v1/rules/{rule_id}/status` | Body `{"enabled": false}` enables or disables a rule |
+| `DELETE /api/v1/rules/{rule_id}` | Delete a rule. The five initial rules need `?force=true` |
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:8000/api/v1/rules?category=authentication&enabled=true"
+Invoke-RestMethod "http://127.0.0.1:8000/api/v1/rules/AUTH-001/status" -Method PATCH -ContentType "application/json" -Body '{"enabled": false}'
+```
+
+Rules are plain data validated against the engine's own condition vocabulary; code is never accepted or evaluated. Errors use `{"success": false, "message": "...", "error_code": "RULE_NOT_FOUND"}`. There is no authentication yet, so the rule API is open like the rest of the API. See [docs/architecture/detection-rules.md](docs/architecture/detection-rules.md).
+
+## Frontend pages
+
+The React app uses React Router with one shared layout (sidebar and top bar). Pages live in `frontend/src/pages/`.
+
+| Route | Page | Backend data |
+| --- | --- | --- |
+| `/dashboard` | Dashboard | `GET /health`, newest events from `GET /events` |
+| `/security-events` | Security Events | `GET /events` (filters: event type, status, source, source IP, limit) and `GET /events/{id}` |
+| `/alerts` | Alerts | None yet: shows "Alert management is not available yet." |
+| `/detection-rules` | Detection Rules | None yet: the backend has no endpoint that lists rules |
+| `/investigations` | Investigations | None yet |
+| `/settings` | Settings | Read-only app, API and backend information; no secrets |
+
+The frontend shows only data returned by the backend and contains no sample or mock data. The events API has no paging, so the Security Events page loads the newest 25 to 500 events. After pulling this version run `npm install` in `frontend` (it added `react-router-dom`).
+
 ## Project structure
 
 See [docs/architecture/overview.md](docs/architecture/overview.md) for the current code layout.
@@ -131,12 +222,18 @@ See [docs/architecture/overview.md](docs/architecture/overview.md) for the curre
 | [docs/architecture/system-architecture.md](docs/architecture/system-architecture.md) | Problem statement, objectives, scope, architecture, planned backend modules, event model, design decisions |
 | [docs/architecture/detection-strategy.md](docs/architecture/detection-strategy.md) | Rule types and schema, initial rule catalogue, alert lifecycle, severity criteria, evaluation methodology |
 | [docs/architecture/database.md](docs/architecture/database.md) | MongoDB choice, collections, fields, indexes, repositories, setup, seeding, verification |
+| [docs/architecture/event-ingestion.md](docs/architecture/event-ingestion.md) | Event lifecycle, endpoints, schema, sample requests and responses, error behavior, PowerShell test commands |
+| [docs/architecture/event-normalization.md](docs/architecture/event-normalization.md) | Normalization rules, alias tables, supported sources, event types and statuses, timestamp handling |
+| [docs/architecture/log-parsing.md](docs/architecture/log-parsing.md) | Parser layer, registry, supported raw formats, parse endpoints, errors, examples |
+| [docs/architecture/detection-engine.md](docs/architecture/detection-engine.md) | Rule model, stateless and stateful evaluation, thresholds, windows, correlation, results, initial rules, security, limitations |
+| [docs/architecture/detection-rules.md](docs/architecture/detection-rules.md) | Rule structure, categories, severities, condition fields, lifecycle, rule API, validation, storage, engine integration |
 
 The project is for **authorised environments and synthetic data only**.
 
 ## Known limitations
 
-- Dashboard numbers are hard-coded samples and the dashboard does not read from MongoDB yet. Sidebar items other than Overview show a placeholder page.
-- No authentication, log ingestion, detection rules or event/alert/rule APIs yet.
+- The Alerts and Investigations pages show "not available yet" states because the backend has no endpoints for them. The Detection Rules page has no UI yet, although the rule API exists (Step 7).
+- No authentication yet: the event API is open to anyone who can reach it, so run it locally with synthetic or authorized data only.
+- Detection results are not stored and no alerts are created yet; there is no alert API, and parsing covers only the formats listed above.
 - Automated tests use an in-memory MongoDB stand-in; use the optional integration test to check a real server.
-- CORS only allows `GET`; widen it when write endpoints are added.
+- CORS allows `GET`, `POST`, `PUT`, `PATCH` and `DELETE` from the configured frontend origins only.

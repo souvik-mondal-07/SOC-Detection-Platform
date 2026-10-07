@@ -20,6 +20,7 @@ export default function BackendStatusPanel({ backend }: { backend: BackendState 
             ["Service", backend.data.service],
             ["Version", backend.data.version],
             ["Environment", backend.data.environment],
+            ["Database", backend.data.database],
           ].map(([term, detail]) => (
             <div key={term} className="flex justify-between gap-4 border-b border-slate-100 pb-1">
               <dt className="text-slate-500">{term}</dt>

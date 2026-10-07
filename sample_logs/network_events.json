@@ -1,0 +1,107 @@
+[
+  {
+    "timestamp": "2026-10-02T13:00:01Z",
+    "source": "network",
+    "event_type": "network",
+    "action": "connection",
+    "status": "success",
+    "source_ip": "192.168.1.50",
+    "message": "Connection allowed",
+    "metadata": {
+      "synthetic": true,
+      "destination_ip": "192.168.1.5",
+      "destination_port": 443,
+      "protocol": "tcp"
+    }
+  },
+  {
+    "timestamp": "2026-10-02T13:00:05Z",
+    "source": "network",
+    "event_type": "network",
+    "action": "connection",
+    "status": "success",
+    "source_ip": "192.168.1.50",
+    "message": "Connection allowed",
+    "metadata": {
+      "synthetic": true,
+      "destination_ip": "192.168.1.5",
+      "destination_port": 443,
+      "protocol": "tcp"
+    }
+  },
+  {
+    "timestamp": "2026-10-02T13:05:00Z",
+    "source": "network",
+    "event_type": "network",
+    "action": "connection",
+    "status": "blocked",
+    "source_ip": "192.168.1.60",
+    "message": "Connection blocked by firewall",
+    "metadata": {
+      "synthetic": true,
+      "destination_ip": "192.168.1.5",
+      "destination_port": 21,
+      "protocol": "tcp"
+    }
+  },
+  {
+    "timestamp": "2026-10-02T13:05:01Z",
+    "source": "network",
+    "event_type": "network",
+    "action": "connection",
+    "status": "blocked",
+    "source_ip": "192.168.1.60",
+    "message": "Connection blocked by firewall",
+    "metadata": {
+      "synthetic": true,
+      "destination_ip": "192.168.1.5",
+      "destination_port": 22,
+      "protocol": "tcp"
+    }
+  },
+  {
+    "timestamp": "2026-10-02T13:05:02Z",
+    "source": "network",
+    "event_type": "network",
+    "action": "connection",
+    "status": "blocked",
+    "source_ip": "192.168.1.60",
+    "message": "Connection blocked by firewall",
+    "metadata": {
+      "synthetic": true,
+      "destination_ip": "192.168.1.5",
+      "destination_port": 23,
+      "protocol": "tcp"
+    }
+  },
+  {
+    "timestamp": "2026-10-02T13:05:03Z",
+    "source": "network",
+    "event_type": "network",
+    "action": "connection",
+    "status": "blocked",
+    "source_ip": "192.168.1.60",
+    "message": "Connection blocked by firewall",
+    "metadata": {
+      "synthetic": true,
+      "destination_ip": "192.168.1.5",
+      "destination_port": 25,
+      "protocol": "tcp"
+    }
+  },
+  {
+    "timestamp": "2026-10-02T13:05:04Z",
+    "source": "network",
+    "event_type": "network",
+    "action": "connection",
+    "status": "success",
+    "source_ip": "192.168.1.60",
+    "message": "Connection allowed",
+    "metadata": {
+      "synthetic": true,
+      "destination_ip": "192.168.1.5",
+      "destination_port": 80,
+      "protocol": "tcp"
+    }
+  }
+]

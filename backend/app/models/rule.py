@@ -21,6 +21,8 @@ class RuleCategory(str, Enum):
     NETWORK = "network"
     PRIVILEGE = "privilege"
     CORRELATION = "correlation"
+    SYSTEM = "system"
+    APPLICATION = "application"
 
 
 class DetectionRule(MongoModel):

@@ -13,17 +13,13 @@ from pymongo import IndexModel
 from pymongo.database import Database
 from pymongo.errors import ConnectionFailure, DuplicateKeyError
 
-from app.core.errors import DatabaseUnavailableError
+from app.core.errors import DatabaseUnavailableError, DuplicateRecordError
 from app.models.common import MongoModel, utc_now
 
 ModelT = TypeVar("ModelT", bound=MongoModel)
 
 MAX_PAGE_SIZE = 1000
 _PROTECTED_FIELDS = {"created_at"}
-
-
-class DuplicateRecordError(Exception):
-    """A record with the same unique identifier already exists."""
 
 
 @contextmanager

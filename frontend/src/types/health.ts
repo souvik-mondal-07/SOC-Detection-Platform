@@ -4,5 +4,6 @@ export interface HealthResponse {
   service: string;
   version: string;
   environment: string;
+  database: "connected" | "unavailable";
   timestamp: string;
 }

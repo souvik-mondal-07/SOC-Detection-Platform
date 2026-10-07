@@ -231,10 +231,10 @@ All sources are converted to one format before detection, so rules are written o
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `timestamp` | ISO 8601 string, UTC | When the event happened (event time, not arrival time) |
-| `source` | string | Origin format: `linux_auth`, `web_access`, `network_conn`, `audit_log` |
-| `event_type` | enum | `authentication`, `web`, `network`, `privilege` |
+| `source` | enum | Origin category, finalised in Step 4: `linux_auth`, `windows_event`, `web_application`, `network`, `application` |
+| `event_type` | enum | `authentication`, `web`, `network`, `privilege`, `system`, `application` |
 | `action` | string | What was done, e.g. `login`, `http_request`, `connection`, `privilege_change`, `admin_action` |
-| `status` | enum | `success`, `failed`, `unknown`. Web: 2xx/3xx = `success`, 4xx/5xx = `failed`. Network: blocked or refused = `failed` |
+| `status` | enum | `success`, `failed`, `blocked`, `unknown` (Step 4). `unknown` is the neutral value when the outcome is not meaningful. Web samples: 2xx/3xx = `success`, 4xx = `failed`. Network: firewall-blocked = `blocked` |
 | `message` | string | Human-readable summary or the original line |
 
 **Optional (filled when the source provides them)**
@@ -265,12 +265,14 @@ All sources are converted to one format before detection, so rules are written o
 
 Ground-truth labels for evaluation are stored in separate files, never inside events, so detection cannot see them.
 
+*Step 4 note: the field list above is the Step 2 design. What is actually implemented, and how values are normalised, is in [event-normalization.md](event-normalization.md) and [event-ingestion.md](event-ingestion.md). Fields such as `http_status` and `destination_port` currently live in `metadata`.*
+
 ### 6.2 Example events (all synthetic)
 
 ```json
-{"timestamp":"2026-10-02T10:20:01Z","source":"web_access","event_type":"web","action":"http_request","status":"failed","source_ip":"198.51.100.7","http_method":"GET","url_path":"/missing-page","http_status":404,"message":"GET /missing-page 404","metadata":{}}
-{"timestamp":"2026-10-02T10:21:10Z","source":"network_conn","event_type":"network","action":"connection","status":"failed","source_ip":"203.0.113.9","destination_ip":"10.0.0.5","destination_port":2222,"protocol":"tcp","message":"Connection refused","metadata":{}}
-{"timestamp":"2026-10-02T10:30:44Z","source":"audit_log","event_type":"privilege","action":"privilege_change","status":"success","username":"test_admin","target_user":"test_user","message":"Role changed to admin","metadata":{}}
+{"timestamp":"2026-10-02T10:20:01Z","source":"web_application","event_type":"web","action":"http_request","status":"failed","source_ip":"198.51.100.7","http_method":"GET","url_path":"/missing-page","http_status":404,"message":"GET /missing-page 404","metadata":{}}
+{"timestamp":"2026-10-02T10:21:10Z","source":"network","event_type":"network","action":"connection","status":"failed","source_ip":"203.0.113.9","destination_ip":"10.0.0.5","destination_port":2222,"protocol":"tcp","message":"Connection refused","metadata":{}}
+{"timestamp":"2026-10-02T10:30:44Z","source":"linux_auth","event_type":"privilege","action":"privilege_change","status":"success","username":"test_admin","target_user":"test_user","message":"Role changed to admin","metadata":{}}
 ```
 
 ## 7. Architecture decisions

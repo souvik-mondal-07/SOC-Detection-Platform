@@ -1,0 +1,5 @@
+[
+  {"timestamp": "2026-10-02T10:30:00Z", "source_ip": "192.168.1.20", "destination_ip": "192.168.1.10", "source_port": 54321, "destination_port": 22, "protocol": "TCP", "action": "connection", "status": "allowed"},
+  {"timestamp": "2026-10-02T10:30:02Z", "source_ip": "192.168.1.20", "destination_ip": "192.168.1.10", "source_port": 54322, "destination_port": 23, "protocol": "TCP", "action": "connection", "status": "denied"},
+  {"timestamp": "2026-10-02T10:30:05Z", "source_ip": "10.0.0.15", "destination_ip": "192.168.1.10", "source_port": 40001, "destination_port": 443, "protocol": "TCP", "action": "connection", "status": "allowed"}
+]

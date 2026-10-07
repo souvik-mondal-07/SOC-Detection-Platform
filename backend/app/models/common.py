@@ -1,6 +1,7 @@
 """Shared building blocks for all MongoDB document models."""
 
 import ipaddress
+import json
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Annotated, Any
@@ -48,12 +49,18 @@ def _ensure_unique(values: list[str]) -> list[str]:
     return values
 
 
-def check_mongo_safe_keys(value: Any, *, forbid_secrets: bool = False) -> Any:
+MAX_METADATA_DEPTH = 8
+MAX_METADATA_JSON_CHARS = 10_000
+
+
+def check_mongo_safe_keys(value: Any, *, forbid_secrets: bool = False, _depth: int = 0) -> Any:
     """Reject keys MongoDB treats specially ("$..." or containing ".") at any depth.
 
     With forbid_secrets=True also reject keys that look like credentials.
     Only keys are inspected; values are never read or echoed in errors.
     """
+    if _depth > MAX_METADATA_DEPTH:
+        raise ValueError(f"nesting deeper than {MAX_METADATA_DEPTH} levels is not allowed")
     if isinstance(value, dict):
         for key, child in value.items():
             if not isinstance(key, str) or not key:
@@ -62,10 +69,18 @@ def check_mongo_safe_keys(value: Any, *, forbid_secrets: bool = False) -> Any:
                 raise ValueError(f"key {key!r} may not start with '$' or contain '.'")
             if forbid_secrets and any(word in key.lower() for word in _SECRET_KEY_WORDS):
                 raise ValueError(f"key {key!r} looks like a credential; do not store secrets")
-            check_mongo_safe_keys(child, forbid_secrets=forbid_secrets)
+            check_mongo_safe_keys(child, forbid_secrets=forbid_secrets, _depth=_depth + 1)
     elif isinstance(value, list):
         for child in value:
-            check_mongo_safe_keys(child, forbid_secrets=forbid_secrets)
+            check_mongo_safe_keys(child, forbid_secrets=forbid_secrets, _depth=_depth + 1)
+    return value
+
+
+def validate_metadata(value: dict[str, Any]) -> dict[str, Any]:
+    """Shared rules for event metadata: safe keys, no credential-like keys, bounded size."""
+    check_mongo_safe_keys(value, forbid_secrets=True)
+    if len(json.dumps(value, default=str)) > MAX_METADATA_JSON_CHARS:
+        raise ValueError(f"metadata is too large (limit {MAX_METADATA_JSON_CHARS} characters as JSON)")
     return value
 
 

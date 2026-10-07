@@ -30,10 +30,10 @@ All models are Pydantic classes in `backend/app/models/`. They reject unknown fi
 | --- | --- |
 | `event_id` | Required, unique, letters/digits/`_`/`-`, max 64 chars |
 | `timestamp` | Required, must include a timezone, stored as UTC |
-| `source` | Required, lowercase snake_case (e.g. `linux_auth`) |
-| `event_type` | `authentication`, `web`, `network`, `privilege` |
+| `source` | Required, lowercase snake_case. New events must use a supported source (`linux_auth`, `windows_event`, `web_application`, `network`, `application`); any snake_case value stays readable so older data is not broken |
+| `event_type` | `authentication`, `web`, `network`, `privilege`, `system`, `application` |
 | `action` | Required, lowercase snake_case (e.g. `login`) |
-| `status` | `success`, `failed`, `unknown` |
+| `status` | `success`, `failed`, `blocked`, `unknown` |
 | `username`, `source_ip` | Optional. `source_ip` must be a valid IPv4/IPv6 address |
 | `message` | Required, 1 to 1000 chars |
 | `metadata` | Free-form object. Keys that look like credentials (`password`, `secret`, `token`, `api_key`...) or that start with `$` / contain `.` are rejected |
@@ -60,6 +60,8 @@ Defined next to each repository and created by the initialization step. Compound
 | `ix_source_ip_timestamp` | "All events from this IP over time", used in investigation and for per-IP rule windows |
 | `ix_event_type_timestamp` | Rules read one event type within a time window |
 | `ix_username_timestamp` | Activity of a single account |
+| `ix_source_timestamp` (Step 4) | `GET /events?source=...`, newest first |
+| `ix_status_timestamp` (Step 4) | `GET /events?status=...`, newest first |
 
 **`alerts`**
 
@@ -150,7 +152,7 @@ python ..\scripts\seed_database.py
 | Topic | Decision |
 | --- | --- |
 | Collection names | `security_events`, `alerts`, `detection_rules`, `investigations`. These replace the provisional `events`/`rules` names used in Step 2 |
-| Event fields | Step 3 stores the 11 fields requested. Step 2's extra optional fields (`destination_ip`, `destination_port`, `http_status`, `url_path`, `failure_reason`, ...) can be kept in `metadata` for now. They should become first-class fields in Step 4, when the normalisers need them, with matching indexes. `event_id` is supplied by the caller here, and `created_at` takes the place of `ingested_at` |
+| Event fields | Step 3 stores the 11 fields requested. Step 2's extra optional fields (`destination_ip`, `destination_port`, `http_status`, `url_path`, `failure_reason`, ...) are kept in `metadata`; Step 4 did not promote them. Promoting the ones rules need, with indexes, is a decision for the parsing step. Since Step 4 the server generates `event_id` (`evt_` + 16 random hex characters), and `created_at` takes the place of `ingested_at`. Event ingestion is described in [event-ingestion.md](event-ingestion.md) |
 | Rule shape | Rules use a free-form `conditions` object, as requested. Step 2's `rule_type` / `filter` / `group_by` / `parameters` layout can live inside `conditions`, or be promoted to top-level fields, when the engine is built. `detection-strategy.md` still shows the Step 2 layout |
 | Investigation status | The spec gave only `open`. `open`, `in_progress`, `closed` is an assumption and easy to change |
 | Health status | `degraded` is returned with HTTP 200 so the frontend keeps working and can show the state |

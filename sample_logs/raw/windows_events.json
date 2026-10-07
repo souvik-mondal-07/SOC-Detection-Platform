@@ -1,0 +1,6 @@
+[
+  {"EventID": 4625, "TimeCreated": "2026-10-02T10:25:00Z", "Computer": "WIN-SERVER", "TargetUserName": "test_user", "IpAddress": "192.168.1.20", "Message": "An account failed to log on.", "LogonType": 3},
+  {"EventID": 4625, "TimeCreated": "2026-10-02T10:25:04Z", "Computer": "WIN-SERVER", "TargetUserName": "test_user", "IpAddress": "192.168.1.20", "Message": "An account failed to log on.", "LogonType": 3},
+  {"EventID": 4624, "TimeCreated": "2026-10-02T10:26:10Z", "Computer": "WIN-SERVER", "TargetUserName": "analyst_test", "IpAddress": "10.0.0.15", "Message": "An account was successfully logged on.", "LogonType": 2},
+  {"EventID": 4624, "TimeCreated": "2026-10-02T10:27:00Z", "Computer": "WIN-SERVER", "TargetUserName": "service_test", "IpAddress": "-"}
+]

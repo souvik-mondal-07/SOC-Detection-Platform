@@ -58,7 +58,7 @@ def build_events() -> list[SecurityEvent]:
         event(7, _t(10, 5, 2), source="linux_auth", event_type="authentication", action="login",
               status="success", username="demo_user", source_ip="192.168.1.30",
               message="Accepted login for demo_user"),
-        event(8, _t(10, 18, 40), source="audit_log", event_type="privilege", action="privilege_change",
+        event(8, _t(10, 18, 40), source="linux_auth", event_type="privilege", action="privilege_change",
               status="success", username="test_user", source_ip="192.168.1.20",
               message="Synthetic privilege change: demo_user added to group admins"),
     ]

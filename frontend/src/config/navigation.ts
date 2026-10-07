@@ -1,10 +1,13 @@
-export const NAV_ITEMS = [
-  "Overview",
-  "Security Events",
-  "Alerts",
-  "Detection Rules",
-  "Investigations",
-  "Settings",
-] as const;
+export interface NavItem {
+  label: string;
+  path: string;
+}
 
-export type NavItem = (typeof NAV_ITEMS)[number];
+export const NAV_ITEMS: readonly NavItem[] = [
+  { label: "Dashboard", path: "/dashboard" },
+  { label: "Security Events", path: "/security-events" },
+  { label: "Alerts", path: "/alerts" },
+  { label: "Detection Rules", path: "/detection-rules" },
+  { label: "Investigations", path: "/investigations" },
+  { label: "Settings", path: "/settings" },
+];

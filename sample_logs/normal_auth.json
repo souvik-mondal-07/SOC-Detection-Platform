@@ -1,0 +1,80 @@
+[
+  {
+    "timestamp": "2026-10-02T10:10:00Z",
+    "source": "linux_auth",
+    "event_type": "authentication",
+    "action": "login",
+    "status": "success",
+    "username": "test_user",
+    "source_ip": "192.168.1.10",
+    "message": "Successful login",
+    "metadata": {
+      "synthetic": true
+    }
+  },
+  {
+    "timestamp": "2026-10-02T10:12:30Z",
+    "source": "linux_auth",
+    "event_type": "authentication",
+    "action": "login",
+    "status": "success",
+    "username": "demo_user",
+    "source_ip": "192.168.1.30",
+    "message": "Successful login",
+    "metadata": {
+      "synthetic": true
+    }
+  },
+  {
+    "timestamp": "2026-10-02T10:20:05Z",
+    "source": "linux_auth",
+    "event_type": "authentication",
+    "action": "logout",
+    "status": "success",
+    "username": "test_user",
+    "source_ip": "192.168.1.10",
+    "message": "User logged out",
+    "metadata": {
+      "synthetic": true
+    }
+  },
+  {
+    "timestamp": "2026-10-02T10:31:44Z",
+    "source": "windows_event",
+    "event_type": "authentication",
+    "action": "login",
+    "status": "success",
+    "username": "demo_user",
+    "source_ip": "192.168.1.30",
+    "message": "Successful logon",
+    "metadata": {
+      "synthetic": true
+    }
+  },
+  {
+    "timestamp": "2026-10-02T10:45:10Z",
+    "source": "linux_auth",
+    "event_type": "authentication",
+    "action": "login",
+    "status": "failed",
+    "username": "test_user",
+    "source_ip": "192.168.1.10",
+    "message": "Failed password for test_user (single typo)",
+    "metadata": {
+      "synthetic": true
+    }
+  },
+  {
+    "timestamp": "2026-10-02T10:45:25Z",
+    "source": "linux_auth",
+    "event_type": "authentication",
+    "action": "login",
+    "status": "success",
+    "username": "test_user",
+    "source_ip": "192.168.1.10",
+    "message": "Successful login",
+    "metadata": {
+      "synthetic": true
+    }
+  }
+]
