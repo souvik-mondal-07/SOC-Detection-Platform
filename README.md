@@ -2,7 +2,7 @@
 
 Rule-Based Security Event Detection and Alerting System for Automated Identification of Suspicious Activities.
 
-**Status: Step 6 (detection engine) plus a multi-page frontend.** The backend accepts security events as JSON or as raw logs (Linux auth, web access, Windows event, network), validates and normalizes them, stores them in MongoDB, and returns them through a small read API. A rule-based detection engine can be run on stored events on request; it returns detection results only. There is no authentication or alert creation yet.
+**Status: Step 6 (detection engine) plus a multi-page frontend.** The backend accepts security events as JSON or as raw logs (Linux auth, web access, Windows event, network), validates and normalizes them, stores them in MongoDB, and returns them through a small read API. A rule-based detection engine can be run on stored events on request; it returns detection results only. Alerts can be generated from detection matches (Step 8); there is no authentication yet.
 
 **Stack:** FastAPI, React + TypeScript + Vite, Tailwind CSS, MongoDB (PyMongo), Pytest. Recharts comes in a later step.
 
@@ -175,6 +175,10 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/detection/evaluate/EVENT_ID
 
 `POST /api/v1/detection/evaluate/{event_id}` evaluates one event and `POST /api/v1/detection/evaluate` takes `{"event_ids": [...]}` (up to 500). Matches are indicators of suspicious activity that need investigation, not proof of an attack. See [docs/architecture/detection-engine.md](docs/architecture/detection-engine.md).
 
+## Alert Generation
+
+Matched detection results can be turned into persistent alerts (collection `alerts`). `POST /api/v1/alerts/generate/{event_id}` and `POST /api/v1/alerts/generate` run detection and store one `open` alert per matching rule; severity comes from the rule, events are referenced by ID, and repeat evaluations of the same burst are deduplicated. `GET /api/v1/alerts` (filters `status`, `severity`, `rule_id`, `source_ip`; `page`, `limit`) and `GET /api/v1/alerts/{alert_id}` read them. Status management, investigation workflow and the alerts UI are not implemented yet. See [docs/architecture/alert-generation.md](docs/architecture/alert-generation.md).
+
 ## Detection Rule Management (Step 7)
 
 Detection rules are managed through `/api/v1/rules`. MongoDB (`detection_rules`) is the single source of truth: the detection engine reads the enabled rules from it on every evaluation, so creating, editing, disabling or deleting a rule takes effect immediately with no restart.
@@ -234,6 +238,6 @@ The project is for **authorised environments and synthetic data only**.
 
 - The Alerts and Investigations pages show "not available yet" states because the backend has no endpoints for them. The Detection Rules page has no UI yet, although the rule API exists (Step 7).
 - No authentication yet: the event API is open to anyone who can reach it, so run it locally with synthetic or authorized data only.
-- Detection results are not stored and no alerts are created yet; there is no alert API, and parsing covers only the formats listed above.
+- Detection results are not stored; alerts are created only on request via the alert API (no status management yet), and parsing covers only the formats listed above.
 - Automated tests use an in-memory MongoDB stand-in; use the optional integration test to check a real server.
 - CORS allows `GET`, `POST`, `PUT`, `PATCH` and `DELETE` from the configured frontend origins only.
