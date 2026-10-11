@@ -1,15 +1,15 @@
-import { useLayoutContext } from "../components/layout/AppLayout";
+import { useLayoutContext } from "../hooks/useRefresh";
 import { getApiBaseUrlForDisplay } from "../services/api";
 
 function Section({ title, rows }: { title: string; rows: readonly (readonly [string, string])[] }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5" aria-label={title}>
-      <h2 className="text-base font-semibold text-ink">{title}</h2>
+    <section className="panel p-5" aria-label={title}>
+      <h2 className="font-mono text-[13px] font-bold uppercase tracking-[0.12em] text-fg">{title}</h2>
       <dl className="mt-3 grid grid-cols-1 gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
         {rows.map(([term, detail]) => (
-          <div key={term} className="flex justify-between gap-4 border-b border-slate-100 pb-1">
-            <dt className="text-slate-500">{term}</dt>
-            <dd className="break-all text-right font-medium text-ink">{detail}</dd>
+          <div key={term} className="flex justify-between gap-4 border-b border-line/60 pb-1">
+            <dt className="text-muted">{term}</dt>
+            <dd className="break-all text-right font-medium text-fg">{detail}</dd>
           </div>
         ))}
       </dl>
@@ -41,7 +41,7 @@ export default function SettingsPage() {
         ["Environment", online?.environment ?? unknown],
         ["Database", online?.database ?? unknown],
       ]} />
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted">
         Authentication and security settings are not shown because the backend does not support them yet.
       </p>
     </>

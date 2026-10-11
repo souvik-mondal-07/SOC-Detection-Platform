@@ -13,8 +13,8 @@ interface EventFiltersProps {
   onApply: (filters: Filters) => void;
 }
 
-const FIELD = "mt-1 w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-accent";
-const LABEL = "block text-xs font-medium text-slate-600";
+const FIELD = "field";
+const LABEL = "field-label";
 
 function label(value: string): string {
   return value.replace(/_/g, " ");
@@ -35,7 +35,7 @@ export default function EventFilters({ applied, onApply }: EventFiltersProps) {
   }
 
   return (
-    <form onSubmit={submit} className="rounded-lg border border-slate-200 bg-white p-4" aria-label="Filter security events">
+    <form onSubmit={submit} className="panel p-4" aria-label="Filter security events">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div>
           <label htmlFor="f-type" className={LABEL}>Event type</label>
@@ -71,10 +71,10 @@ export default function EventFilters({ applied, onApply }: EventFiltersProps) {
         </div>
       </div>
       <div className="mt-3 flex gap-2">
-        <button type="submit" className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+        <button type="submit" className="btn-primary">
           Apply filters
         </button>
-        <button type="button" onClick={reset} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+        <button type="button" onClick={reset} className="btn">
           Reset
         </button>
       </div>

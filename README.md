@@ -2,9 +2,9 @@
 
 Rule-Based Security Event Detection and Alerting System for Automated Identification of Suspicious Activities.
 
-**Status: Step 6 (detection engine) plus a multi-page frontend.** The backend accepts security events as JSON or as raw logs (Linux auth, web access, Windows event, network), validates and normalizes them, stores them in MongoDB, and returns them through a small read API. A rule-based detection engine can be run on stored events on request; it returns detection results only. Alerts can be generated from detection matches (Step 8); there is no authentication yet.
+**Status: Step 10 (SOC dashboard) on top of the Step 1–9 backend.** The backend accepts security events as JSON or as raw logs (Linux auth, web access, Windows event, network), validates and normalizes them, stores them in MongoDB, and returns them through a small read API. A rule-based detection engine can be run on stored events on request; it returns detection results only. Alerts can be generated from detection matches (Step 8) and are prioritised with a 0–100 score (Step 9). The React dashboard (Step 10) shows alerts, security events and detection rules in read-only list and detail views, with Recharts visualisations. There is no authentication yet.
 
-**Stack:** FastAPI, React + TypeScript + Vite, Tailwind CSS, MongoDB (PyMongo), Pytest. Recharts comes in a later step.
+**Stack:** FastAPI, React + TypeScript + Vite, Tailwind CSS, MongoDB (PyMongo), Recharts, Pytest, Vitest.
 
 ## Prerequisites
 
@@ -97,6 +97,7 @@ Frontend type-check and production build:
 ```powershell
 cd frontend
 npm run build
+npm test
 ```
 
 ## Try the event ingestion API
@@ -153,7 +154,7 @@ Synthetic samples are in `sample_logs/raw/`. Parsing does not detect anything; s
 
 ## Detection engine (Step 6)
 
-Stored events are evaluated against data-driven rules from the `detection_rules` collection. The engine answers "did this event match a rule?" and returns a structured result. It does **not** create alerts (that is a later step) and does not run automatically after ingestion; you call it explicitly.
+Stored events are evaluated against data-driven rules from the `detection_rules` collection. The engine answers "did this event match a rule?" and returns a structured result. It does **not** create alerts itself (the alert service from Step 8 does that) and does not run automatically after ingestion; you call it explicitly.
 
 Create the five initial rules once (manual only, safe to repeat, never runs on startup). From `backend` with the venv active:
 
@@ -177,7 +178,11 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/detection/evaluate/EVENT_ID
 
 ## Alert Generation
 
-Matched detection results can be turned into persistent alerts (collection `alerts`). `POST /api/v1/alerts/generate/{event_id}` and `POST /api/v1/alerts/generate` run detection and store one `open` alert per matching rule; severity comes from the rule, events are referenced by ID, and repeat evaluations of the same burst are deduplicated. `GET /api/v1/alerts` (filters `status`, `severity`, `rule_id`, `source_ip`; `page`, `limit`) and `GET /api/v1/alerts/{alert_id}` read them. Status management, investigation workflow and the alerts UI are not implemented yet. See [docs/architecture/alert-generation.md](docs/architecture/alert-generation.md).
+Matched detection results can be turned into persistent alerts (collection `alerts`). `POST /api/v1/alerts/generate/{event_id}` and `POST /api/v1/alerts/generate` run detection and store one `open` alert per matching rule; severity comes from the rule, events are referenced by ID, and repeat evaluations of the same burst are deduplicated. `GET /api/v1/alerts` (filters `status`, `severity`, `rule_id`, `source_ip`, `priority_min`, `priority_max`; `page`, `limit`) and `GET /api/v1/alerts/{alert_id}` read them. Status management, investigation workflow and the alerts UI are not implemented yet. See [docs/architecture/alert-generation.md](docs/architecture/alert-generation.md).
+
+## Alert Prioritization
+
+Every alert has the severity of its rule (`low`, `medium`, `high`, `critical`) and a deterministic `priority_score` from 0 to 100 with a short `priority_reason`. The score starts from the severity (25 / 50 / 75 / 100) and adds small capped boosts for contributing event count, correlation and recency; context can never outrank a higher severity. `GET /api/v1/alerts` returns highest priority first (ties: newest first) and supports `severity`, `status`, `rule_id`, `source_ip`, `priority_min` and `priority_max`. Clients cannot set severity or score. See [docs/architecture/severity-and-priority.md](docs/architecture/severity-and-priority.md).
 
 ## Detection Rule Management (Step 7)
 
@@ -205,14 +210,14 @@ The React app uses React Router with one shared layout (sidebar and top bar). Pa
 
 | Route | Page | Backend data |
 | --- | --- | --- |
-| `/dashboard` | Dashboard | `GET /health`, newest events from `GET /events` |
+| `/dashboard` | Dashboard | KPI cards, charts and top alerts from `GET /alerts`, `GET /events`, `GET /rules`, `GET /health` |
+| `/alerts` | Alerts | `GET /alerts` (filters, paging) and `GET /alerts/{id}`; read-only |
 | `/security-events` | Security Events | `GET /events` (filters: event type, status, source, source IP, limit) and `GET /events/{id}` |
-| `/alerts` | Alerts | None yet: shows "Alert management is not available yet." |
-| `/detection-rules` | Detection Rules | None yet: the backend has no endpoint that lists rules |
-| `/investigations` | Investigations | None yet |
+| `/detection-rules` | Detection Rules | `GET /rules` and `GET /rules/{id}`; read-only |
+| `/investigations` | Investigations | Planned for a later step (disabled in the sidebar) |
 | `/settings` | Settings | Read-only app, API and backend information; no secrets |
 
-The frontend shows only data returned by the backend and contains no sample or mock data. The events API has no paging, so the Security Events page loads the newest 25 to 500 events. After pulling this version run `npm install` in `frontend` (it added `react-router-dom`).
+The frontend shows only data returned by the backend and contains no sample or mock data. The events API has no paging or total count, so event figures are labelled as "newest N". See [docs/architecture/soc-dashboard.md](docs/architecture/soc-dashboard.md) for the architecture and known limitations. After pulling this version run `npm install` in `frontend` (it added `recharts` and `vitest`).
 
 ## Project structure
 
@@ -224,6 +229,7 @@ See [docs/architecture/overview.md](docs/architecture/overview.md) for the curre
 | --- | --- |
 | [docs/research.md](docs/research.md) | Review of Wazuh, Splunk, Elastic Security and Microsoft Sentinel from official documentation, and the project gap |
 | [docs/architecture/system-architecture.md](docs/architecture/system-architecture.md) | Problem statement, objectives, scope, architecture, planned backend modules, event model, design decisions |
+| [docs/architecture/severity-and-priority.md](docs/architecture/severity-and-priority.md) | Severity levels, priority score formula, ordering, indexes, limitations |
 | [docs/architecture/detection-strategy.md](docs/architecture/detection-strategy.md) | Rule types and schema, initial rule catalogue, alert lifecycle, severity criteria, evaluation methodology |
 | [docs/architecture/database.md](docs/architecture/database.md) | MongoDB choice, collections, fields, indexes, repositories, setup, seeding, verification |
 | [docs/architecture/event-ingestion.md](docs/architecture/event-ingestion.md) | Event lifecycle, endpoints, schema, sample requests and responses, error behavior, PowerShell test commands |
@@ -236,7 +242,8 @@ The project is for **authorised environments and synthetic data only**.
 
 ## Known limitations
 
-- The Alerts and Investigations pages show "not available yet" states because the backend has no endpoints for them. The Detection Rules page has no UI yet, although the rule API exists (Step 7).
+- The dashboard is read-only. Alerts and detection rules have list and detail views; Investigations, alert status management, rule management (create, edit, enable, delete), authentication and notifications are not part of Step 10 and are not implemented in the UI. The Investigations item is a disabled placeholder.
+- `GET /events` has no paging or total count, and `GET /alerts` cannot be sorted or filtered by time, so some dashboard figures describe the newest events or a sample of alerts and are labelled that way (see [docs/architecture/soc-dashboard.md](docs/architecture/soc-dashboard.md)).
 - No authentication yet: the event API is open to anyone who can reach it, so run it locally with synthetic or authorized data only.
 - Detection results are not stored; alerts are created only on request via the alert API (no status management yet), and parsing covers only the formats listed above.
 - Automated tests use an in-memory MongoDB stand-in; use the optional integration test to check a real server.

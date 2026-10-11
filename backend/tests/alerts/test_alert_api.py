@@ -6,7 +6,8 @@ def test_generate_single(client, db, burst):
     body = r.json()
     assert r.status_code == 200 and body["success"] and body["alerts_created"] == 1
     assert body["alerts"][0] == {"alert_id": body["alerts"][0]["alert_id"], "rule_id": "AUTH-001",
-                                 "title": "Multiple Failed Logins Detected", "severity": "high", "status": "open"}
+                                 "title": "Multiple Failed Logins Detected", "severity": "high", "status": "open",
+                                 "priority_score": 83, "priority_reason": "High severity rule with multiple correlated events"}
 
 
 def test_generate_no_match(client, db, normal_event):

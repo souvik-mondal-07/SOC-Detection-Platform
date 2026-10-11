@@ -16,6 +16,8 @@ class AlertSummary(BaseModel):
     rule_id: str
     title: str
     severity: str
+    priority_score: int
+    priority_reason: str | None = None
     status: str
 
 

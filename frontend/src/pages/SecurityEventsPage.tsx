@@ -1,19 +1,31 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import EventDetails from "../components/events/EventDetails";
 import EventFilters from "../components/events/EventFilters";
 import EventTable from "../components/events/EventTable";
+import RefreshError from "../components/common/RefreshError";
 import StateMessage from "../components/common/StateMessage";
+import ErrorState from "../components/common/ErrorState";
+import { TableSkeleton } from "../components/common/Skeleton";
 import { useEvents } from "../hooks/useEvents";
+import { useReportUpdated } from "../hooks/useRefresh";
 import { DEFAULT_EVENT_FILTERS, type EventFilters as Filters } from "../types/events";
 
 export default function SecurityEventsPage() {
   const [filters, setFilters] = useState<Filters>(DEFAULT_EVENT_FILTERS);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // ?event=<id> deep-links from the alert details panel.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedId, setSelected] = useState<string | null>(searchParams.get("event"));
+  const setSelectedId = (id: string | null) => {
+    setSelected(id);
+    setSearchParams(id ? { event: id } : {}, { replace: true });
+  };
   const events = useEvents(filters);
+  useReportUpdated(events.updatedAt);
 
   return (
     <>
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-muted">
         Normalized events stored by the backend, newest first. The API supports exact-match filters and a result limit but
         not paging, so this page loads the newest events up to the limit you choose.
       </p>
@@ -22,17 +34,9 @@ export default function SecurityEventsPage() {
 
       <div className={selectedId ? "grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]" : undefined}>
         <section aria-label="Event list" className="min-w-0 space-y-3">
-          {events.kind === "loading" && <StateMessage variant="loading" title="Loading security events…" />}
-          {events.kind === "error" && (
-            <StateMessage variant="error" title="Could not load security events">
-              {events.message}
-              <div className="mt-3">
-                <button type="button" onClick={events.reload} className="rounded-md border border-red-300 bg-white px-3 py-1 text-sm font-medium text-critical hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-critical">
-                  Try again
-                </button>
-              </div>
-            </StateMessage>
-          )}
+          <RefreshError errors={[events.refreshError]} updatedAt={events.updatedAt} onRetry={events.reload} />
+          {events.kind === "loading" && <TableSkeleton label="Loading security events" />}
+          {events.kind === "error" && <ErrorState title="Could not load security events" message={events.message} onRetry={events.reload} />}
           {events.kind === "loaded" && events.data.events.length === 0 && (
             <StateMessage variant="empty" title="No security events found.">
               No stored events match the current filters.
@@ -40,7 +44,7 @@ export default function SecurityEventsPage() {
           )}
           {events.kind === "loaded" && events.data.events.length > 0 && (
             <>
-              <p className="text-sm text-slate-600" role="status">
+              <p className="text-sm text-muted" role="status">
                 Showing {events.data.count} event{events.data.count === 1 ? "" : "s"}
                 {events.data.count === filters.limit ? ` (limit reached; older matching events may exist)` : ""}.
               </p>

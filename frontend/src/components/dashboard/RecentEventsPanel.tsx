@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useEvents } from "../../hooks/useEvents";
 import { DEFAULT_EVENT_FILTERS } from "../../types/events";
+import RefreshError from "../common/RefreshError";
 import StateMessage from "../common/StateMessage";
 import EventTable from "../events/EventTable";
 
@@ -13,11 +14,12 @@ export default function RecentEventsPanel() {
   return (
     <section aria-labelledby="recent-heading" className="space-y-3">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 id="recent-heading" className="text-base font-semibold text-ink">Recent security events</h2>
-        <Link to="/security-events" className="text-sm font-medium text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent">
+        <h2 id="recent-heading" className="font-mono text-[13px] font-bold uppercase tracking-[0.12em] text-fg">Recent security events</h2>
+        <Link to="/security-events" className="text-sm font-medium text-cyan hover:underline focus-visible:outline-2 focus-visible:outline-neon">
           View all events
         </Link>
       </div>
+      <RefreshError label="recent events" errors={[events.refreshError]} updatedAt={events.updatedAt} onRetry={events.reload} />
       {events.kind === "loading" && <StateMessage variant="loading" title="Loading recent events…" />}
       {events.kind === "error" && <StateMessage variant="error" title="Could not load recent events">{events.message}</StateMessage>}
       {events.kind === "loaded" && events.data.events.length === 0 && (

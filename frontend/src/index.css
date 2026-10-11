@@ -1,18 +1,166 @@
 @import "tailwindcss";
 
+/* SOC command-center theme. Colour tokens are used as Tailwind utilities (bg-panel, text-muted, border-line, text-neon ...). */
 @theme {
   --font-sans: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --color-ink: #0f1b2d;
-  --color-ink-soft: #1b2b44;
-  --color-canvas: #edf0f4;
-  --color-accent: #0e7c86;
-  --color-critical: #b42318;
-  --color-warning: #b54708;
-  --color-resolved: #067647;
+  --font-mono: "Cascadia Mono", "JetBrains Mono", "SF Mono", Consolas, "Liberation Mono", ui-monospace, monospace;
+
+  --color-void: #060a10;
+  --color-panel: #0c131d;
+  --color-panel-2: #121c2a;
+  --color-line: #1b2a3c;
+  --color-line-strong: #2b3f57;
+
+  --color-fg: #e8eef6;
+  --color-body: #c5d1df;
+  --color-muted: #8ca1b8;
+  --color-dim: #67798f;
+
+  --color-neon: #39ff88;
+  --color-cyan: #22d3ee;
+
+  --color-critical: #f2555a;
+  --color-high: #f97316;
+  --color-medium: #f5a524;
+  --color-low: #4fae7a;
+  --color-warning: #f5a524;
+  --color-resolved: #39ff88;
+}
+
+:root {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--color-canvas);
-  color: #1c2533;
+  background-color: var(--color-void);
+  color: var(--color-body);
   font-family: var(--font-sans);
+  /* Faint grid and two very soft radial washes. Fixed, so it never scrolls or repaints with content. */
+  background-image:
+    radial-gradient(900px 500px at 85% -10%, rgb(34 211 238 / 0.07), transparent 60%),
+    radial-gradient(800px 500px at 0% 100%, rgb(57 255 136 / 0.05), transparent 60%),
+    linear-gradient(rgb(255 255 255 / 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.025) 1px, transparent 1px);
+  background-size: auto, auto, 44px 44px, 44px 44px;
+  background-attachment: fixed;
+}
+
+/* Barely visible scanlines; static, no animation. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent 3px, rgb(0 0 0 / 0.07) 3px, rgb(0 0 0 / 0.07) 4px);
+}
+
+::selection {
+  background: rgb(57 255 136 / 0.3);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-neon);
+  outline-offset: 2px;
+}
+
+input,
+select {
+  background-color: var(--color-void);
+  color: var(--color-fg);
+}
+input::placeholder {
+  color: var(--color-dim);
+}
+
+/* Thin dark scrollbars for tables and drawers. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+@layer components {
+  .panel {
+    background-color: var(--color-panel);
+    border: 1px solid var(--color-line);
+    border-radius: 0.5rem;
+  }
+  /* Small technical section label. */
+  .tech-label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--color-line-strong);
+    background-color: var(--color-panel-2);
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-body);
+    transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+  }
+  .btn:hover:not(:disabled) {
+    border-color: rgb(57 255 136 / 0.6);
+    color: var(--color-fg);
+  }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 0.375rem;
+    border: 1px solid var(--color-neon);
+    background-color: rgb(57 255 136 / 0.12);
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-neon);
+    transition: background-color 0.15s, box-shadow 0.15s;
+  }
+  .btn-primary:hover {
+    background-color: rgb(57 255 136 / 0.2);
+    box-shadow: 0 0 0 3px rgb(57 255 136 / 0.12);
+  }
+  .field {
+    margin-top: 0.25rem;
+    width: 100%;
+    border-radius: 0.375rem;
+    border: 1px solid var(--color-line-strong);
+    background-color: var(--color-void);
+    padding: 0.375rem 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-fg);
+    transition: border-color 0.15s;
+  }
+  .field:hover {
+    border-color: var(--color-dim);
+  }
+  .field-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

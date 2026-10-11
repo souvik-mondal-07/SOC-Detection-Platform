@@ -1,10 +1,11 @@
 """Alert raised by a detection rule."""
 
 from enum import Enum
-from typing import Annotated, Self
+from typing import Annotated, Any, Self
 
 from pydantic import Field, model_validator
 
+from app.core.severity import MAX_PRIORITY_SCORE, MIN_PRIORITY_SCORE, base_score
 from app.models.common import (
     ID_PATTERN,
     RULE_ID_PATTERN,
@@ -30,11 +31,25 @@ class Alert(MongoModel):
     title: str = Field(min_length=1, max_length=200)
     description: str = Field(min_length=1, max_length=1000)
     severity: Severity
+    # 0-100, see app.services.priority_service. Alerts stored before Step 9 get their severity's base score.
+    priority_score: int = Field(ge=MIN_PRIORITY_SCORE, le=MAX_PRIORITY_SCORE)
+    priority_reason: str | None = Field(default=None, max_length=200)
     status: AlertStatus = AlertStatus.OPEN
     source_ip: IPAddressStr | None = None
     event_ids: Annotated[UniqueIdList, Field(min_length=1, max_length=10_000)]
     created_at: UTCDateTime = Field(default_factory=utc_now)
     updated_at: UTCDateTime = Field(default_factory=utc_now)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_priority_score(cls, data: Any) -> Any:
+        """Backward compatibility: documents without priority_score fall back to the base score."""
+        if isinstance(data, dict) and data.get("priority_score") is None and data.get("severity") is not None:
+            try:
+                return {**data, "priority_score": base_score(data["severity"])}
+            except ValueError:
+                return data  # the severity validator reports the real error
+        return data
 
     @model_validator(mode="after")
     def _updated_not_before_created(self) -> Self:

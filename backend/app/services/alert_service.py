@@ -29,6 +29,7 @@ from app.repositories.detection_rule_repository import DetectionRuleRepository
 from app.repositories.event_repository import EventRepository
 from app.services.detection_service import DetectionService
 from app.services.ingestion_service import EventNotFoundError
+from app.services.priority_service import PriorityService
 
 logger = logging.getLogger("soc.alerts")
 
@@ -79,11 +80,13 @@ class AlertService:
         rule_repository: DetectionRuleRepository,
         event_repository: EventRepository,
         detection_service: DetectionService | None = None,
+        priority_service: PriorityService | None = None,
     ) -> None:
         self._alerts = alert_repository
         self._rules = rule_repository
         self._events = event_repository
         self._detection = detection_service or DetectionService(event_repository, rule_repository)
+        self._priority = priority_service or PriorityService()
 
     # -- generation from stored events -----------------------------------------------
 
@@ -159,6 +162,14 @@ class AlertService:
         if self._alerts.find_open_duplicate(rule.rule_id, source_ip, event_ids) is not None:
             return None
 
+        # Priority is derived from the rule's severity plus detection context; never from the event.
+        priority = self._priority.calculate(
+            rule.severity,
+            event_count=len(event_ids),
+            correlated=bool(result.details.get("correlation_field") and result.details.get("correlation_value")),
+            last_event_at=event.timestamp if event is not None else None,
+        )
+
         for _ in range(MAX_ID_ATTEMPTS):
             now = utc_now()
             try:
@@ -168,6 +179,8 @@ class AlertService:
                     title=f"{rule.name} Detected"[:200],
                     description=_describe(rule, result, source_ip, len(event_ids)),
                     severity=rule.severity,  # rule is the source of truth, never the event or result
+                    priority_score=priority.score,
+                    priority_reason=priority.reason,
                     status=AlertStatus.OPEN,
                     source_ip=source_ip,
                     event_ids=event_ids,

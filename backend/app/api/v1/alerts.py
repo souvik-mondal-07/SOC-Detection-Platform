@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pymongo.database import Database
 
 from app.core.database import get_database
+from app.core.severity import MAX_PRIORITY_SCORE, MIN_PRIORITY_SCORE
 from app.models.alert import AlertStatus
 from app.models.alert_management import (
     AlertGenerationResponse,
@@ -84,10 +85,14 @@ def list_alerts(
     severity: Severity | None = None,
     rule_id: Annotated[str | None, Query(pattern=RULE_ID_PATTERN, max_length=32)] = None,
     source_ip: Annotated[str | None, Query(max_length=45)] = None,
+    priority_min: Annotated[int | None, Query(ge=MIN_PRIORITY_SCORE, le=MAX_PRIORITY_SCORE)] = None,
+    priority_max: Annotated[int | None, Query(ge=MIN_PRIORITY_SCORE, le=MAX_PRIORITY_SCORE)] = None,
     page: Annotated[int, Query(ge=1, le=100_000)] = 1,
     limit: Annotated[int, Query(ge=1, le=MAX_ALERT_PAGE_LIMIT)] = DEFAULT_PAGE_LIMIT,
 ) -> AlertListResponse:
-    """List alerts, newest first. Filtering and pagination happen in MongoDB."""
+    """List alerts, highest priority first (ties: newest first). Filtering, sorting and pagination happen in MongoDB."""
+    if priority_min is not None and priority_max is not None and priority_min > priority_max:
+        raise HTTPException(status_code=422, detail="priority_min cannot be greater than priority_max")
     if source_ip is not None:
         try:
             source_ip = str(ipaddress.ip_address(source_ip))
@@ -98,6 +103,8 @@ def list_alerts(
         severity=severity.value if severity else None,
         rule_id=rule_id,
         source_ip=source_ip,
+        priority_min=priority_min,
+        priority_max=priority_max,
         skip=(page - 1) * limit,
         limit=limit,
     )

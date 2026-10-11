@@ -6,6 +6,7 @@ from typing import Any
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
 from app.core.database import COLLECTION_ALERTS
+from app.core.severity import MAX_PRIORITY_SCORE, MIN_PRIORITY_SCORE
 from app.models.alert import Alert
 from app.repositories.base import BaseRepository, translate_db_errors
 
@@ -19,6 +20,10 @@ class AlertRepository(BaseRepository[Alert]):
     indexes = (
         IndexModel([("alert_id", ASCENDING)], name="uq_alert_id", unique=True),
         IndexModel([("created_at", DESCENDING)], name="ix_created_at"),  # newest alerts first
+        # Step 9: default list order (priority_score DESC, created_at DESC) and priority_min/max range filters.
+        IndexModel([("priority_score", DESCENDING), ("created_at", DESCENDING)], name="ix_priority_created_at"),
+        # Step 9: the analyst triage queue, e.g. open alerts by priority.
+        IndexModel([("status", ASCENDING), ("priority_score", DESCENDING), ("created_at", DESCENDING)], name="ix_status_priority_created_at"),
         IndexModel([("status", ASCENDING), ("created_at", DESCENDING)], name="ix_status_created_at"),  # triage queue
         IndexModel([("severity", ASCENDING), ("created_at", DESCENDING)], name="ix_severity_created_at"),  # filter by severity
         IndexModel([("rule_id", ASCENDING), ("created_at", DESCENDING)], name="ix_rule_id_created_at"),  # alerts per rule, tuning
@@ -41,10 +46,12 @@ class AlertRepository(BaseRepository[Alert]):
         severity: str | None = None,
         rule_id: str | None = None,
         source_ip: str | None = None,
+        priority_min: int | None = None,
+        priority_max: int | None = None,
         skip: int = 0,
         limit: int = 20,
     ) -> tuple[list[Alert], int]:
-        """One page of alerts, newest first, plus the total matching the filters.
+        """One page of alerts, highest priority first (ties: newest first), plus the total matching the filters.
 
         Filtering, counting, sorting, skipping and limiting all happen inside MongoDB.
         """
@@ -57,11 +64,21 @@ class AlertRepository(BaseRepository[Alert]):
             for key, value in (("status", status), ("severity", severity), ("rule_id", rule_id), ("source_ip", source_ip))
             if value is not None
         }
+        for name, bound in (("priority_min", priority_min), ("priority_max", priority_max)):
+            if bound is not None and not MIN_PRIORITY_SCORE <= bound <= MAX_PRIORITY_SCORE:
+                raise ValueError(f"{name} must be between {MIN_PRIORITY_SCORE} and {MAX_PRIORITY_SCORE}")
+        if priority_min is not None and priority_max is not None and priority_min > priority_max:
+            raise ValueError("priority_min cannot be greater than priority_max")
+        if priority_min is not None or priority_max is not None:
+            query["priority_score"] = {
+                **({"$gte": priority_min} if priority_min is not None else {}),
+                **({"$lte": priority_max} if priority_max is not None else {}),
+            }
         with translate_db_errors():
             total = self._collection.count_documents(query)
             cursor = (
                 self._collection.find(query, {"_id": 0})
-                .sort([("created_at", DESCENDING), ("alert_id", DESCENDING)])
+                .sort([("priority_score", DESCENDING), ("created_at", DESCENDING), ("alert_id", DESCENDING)])
                 .skip(skip)
                 .limit(limit)
             )

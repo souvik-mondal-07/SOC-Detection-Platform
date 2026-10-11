@@ -2,11 +2,11 @@ import type { BackendState } from "../../hooks/useBackendHealth";
 
 export default function BackendStatusPanel({ backend }: { backend: BackendState }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="backend-heading">
-      <h2 id="backend-heading" className="text-base font-semibold text-ink">
+    <section className="panel p-5" aria-labelledby="backend-heading">
+      <h2 id="backend-heading" className="font-mono text-[13px] font-bold uppercase tracking-[0.12em] text-fg">
         Backend connection
       </h2>
-      {backend.kind === "loading" && <p className="mt-2 text-sm text-slate-500">Contacting the API…</p>}
+      {backend.kind === "loading" && <p className="mt-2 text-sm text-muted">Contacting the API…</p>}
       {backend.kind === "offline" && (
         <p className="mt-2 text-sm text-critical">
           Cannot reach the backend ({backend.reason}). Start it with <code>uvicorn app.main:app --reload</code> from
@@ -22,9 +22,9 @@ export default function BackendStatusPanel({ backend }: { backend: BackendState 
             ["Environment", backend.data.environment],
             ["Database", backend.data.database],
           ].map(([term, detail]) => (
-            <div key={term} className="flex justify-between gap-4 border-b border-slate-100 pb-1">
-              <dt className="text-slate-500">{term}</dt>
-              <dd className="font-medium text-ink">{detail}</dd>
+            <div key={term} className="flex justify-between gap-4 border-b border-line/60 pb-1">
+              <dt className="text-muted">{term}</dt>
+              <dd className="font-medium text-fg">{detail}</dd>
             </div>
           ))}
         </dl>

@@ -13,19 +13,19 @@ export default function EventDetails({ eventId, onClose }: EventDetailsProps) {
   const state = useEvent(eventId);
 
   return (
-    <aside className="rounded-lg border border-slate-200 bg-white p-5" aria-label="Event details">
+    <aside className="panel p-5" aria-label="Event details">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-base font-semibold text-ink">Event details</h2>
+        <h2 className="font-mono text-[13px] font-bold uppercase tracking-[0.12em] text-fg">Event details</h2>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-accent"
+          className="btn"
         >
           Close
         </button>
       </div>
 
-      {state.kind === "loading" && <p className="mt-4 text-sm text-slate-500" role="status">Loading event…</p>}
+      {state.kind === "loading" && <p className="mt-4 text-sm text-muted" role="status">Loading event…</p>}
       {state.kind === "error" && (
         <div className="mt-4"><StateMessage variant="error" title="Could not load this event">{state.message}</StateMessage></div>
       )}
@@ -43,18 +43,18 @@ export default function EventDetails({ eventId, onClose }: EventDetailsProps) {
             ["Message", <span key="msg" className="break-words">{state.data.message}</span>],
             ["Ingested", formatTimestamp(state.data.created_at)],
           ].map(([term, detail], index) => (
-            <div key={index} className="grid grid-cols-[6.5rem_1fr] gap-2 border-b border-slate-100 pb-2">
-              <dt className="text-slate-500">{term}</dt>
-              <dd className="text-ink">{detail}</dd>
+            <div key={index} className="grid grid-cols-[6.5rem_1fr] gap-2 border-b border-line/60 pb-2">
+              <dt className="text-muted">{term}</dt>
+              <dd className="text-fg">{detail}</dd>
             </div>
           ))}
           <div>
-            <dt className="text-slate-500">Metadata</dt>
+            <dt className="text-muted">Metadata</dt>
             <dd className="mt-1">
               {Object.keys(state.data.metadata).length === 0 ? (
-                <span className="text-slate-500">None</span>
+                <span className="text-muted">None</span>
               ) : (
-                <pre className="max-h-64 overflow-auto rounded bg-slate-50 p-3 text-xs text-slate-800">
+                <pre className="max-h-64 overflow-auto rounded bg-panel-2 p-3 text-xs text-fg">
                   {JSON.stringify(state.data.metadata, null, 2)}
                 </pre>
               )}
