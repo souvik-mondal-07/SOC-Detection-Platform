@@ -45,7 +45,7 @@ The model checks `metadata` keys, not free text. Parsers written in Step 4 must 
 
 **`detection_rules`** (`models/rule.py`): `rule_id`, `name`, `category` (`authentication` `web` `network` `privilege` `correlation`), `description`, `severity`, `enabled` (true/false only, default true), `conditions`, timestamps. `conditions` is a free-form object that must be non-empty and use MongoDB-safe keys. The detection engine will define how it is interpreted, so adding rules or rule shapes needs no schema migration.
 
-**`investigations`** (`models/investigation.py`): `investigation_id`, `alert_ids` (at least one), `title`, `status` (`open` `in_progress` `closed`, default `open`), `notes` (list of `{text, created_at}`), timestamps.
+**`investigations`** (`models/investigation.py`): `investigation_id`, `alert_ids` (at least one), `title`, `status` (`open` `in_progress` `closed`, default `open`), `notes` (list of `{note_id, text, created_at}`, Step 11), timestamps. See [alert-investigation.md](alert-investigation.md).
 
 ## 4. Indexes
 
@@ -74,9 +74,9 @@ Defined next to each repository and created by the initialization step. Compound
 | `ix_rule_id_created_at` | Alerts per rule, used when tuning rules |
 | `ix_source_ip_created_at` | Alerts for one address |
 
-**`detection_rules`**: `uq_rule_id` (unique), `ix_category` (list by category), `ix_enabled` (engine loads enabled rules). The collection will stay small, so these exist mostly for the unique ID and for clarity.
+**`detection_rules`**: `uq_rule_id` (unique), `ix_category` (list by category), `ix_enabled` (engine loads enabled rules), `ix_severity` (filter by severity, Step 7). The collection will stay small, so these exist mostly for the unique ID and for clarity.
 
-**`investigations`**: `uq_investigation_id` (unique), `ix_status_created_at` (open investigations first), `ix_created_at`.
+**`investigations`**: `uq_investigation_id` (unique), `ix_status_created_at` (open investigations first), `ix_created_at`, `ix_alert_ids` (Step 11, alert to investigations lookup).
 
 Each index costs some write time and disk. The set is kept small on purpose and should be revisited with real query patterns in later steps.
 

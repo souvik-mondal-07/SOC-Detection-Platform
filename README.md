@@ -2,7 +2,7 @@
 
 Rule-Based Security Event Detection and Alerting System for Automated Identification of Suspicious Activities.
 
-**Status: Step 10 (SOC dashboard) on top of the Step 1–9 backend.** The backend accepts security events as JSON or as raw logs (Linux auth, web access, Windows event, network), validates and normalizes them, stores them in MongoDB, and returns them through a small read API. A rule-based detection engine can be run on stored events on request; it returns detection results only. Alerts can be generated from detection matches (Step 8) and are prioritised with a 0–100 score (Step 9). The React dashboard (Step 10) shows alerts, security events and detection rules in read-only list and detail views, with Recharts visualisations. There is no authentication yet.
+**Status: Step 11 (alert investigation workflow) on top of Steps 1–10.** The backend accepts security events as JSON or as raw logs (Linux auth, web access, Windows event, network), validates and normalizes them, stores them in MongoDB, and returns them through a small read API. A rule-based detection engine can be run on stored events on request; it returns detection results only. Alerts can be generated from detection matches (Step 8) and are prioritised with a 0–100 score (Step 9). The React dashboard (Step 10) shows alerts, security events and detection rules in read-only list and detail views, with Recharts visualisations. Analysts can open investigations for alerts, link alerts, add notes and track investigation status (Step 11, [details](docs/architecture/alert-investigation.md)). There is no authentication yet, so the API is for local development only.
 
 **Stack:** FastAPI, React + TypeScript + Vite, Tailwind CSS, MongoDB (PyMongo), Recharts, Pytest, Vitest.
 

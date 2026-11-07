@@ -15,7 +15,7 @@ export default function AppLayout() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const backend = useBackendHealth(refreshKey);
   const { pathname } = useLocation();
-  const page = NAV_ITEMS.find((item) => item.path === pathname) ?? { title: "PAGE NOT FOUND", subtitle: "This address does not match a page" };
+  const page = NAV_ITEMS.find((item) => pathname === item.path || pathname.startsWith(`${item.path}/`)) ?? { title: "PAGE NOT FOUND", subtitle: "This address does not match a page" };
 
   const refresh = useCallback(() => setRefreshKey((n) => n + 1), []);
 

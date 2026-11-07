@@ -16,6 +16,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { label: "Security Alerts", path: "/alerts", icon: "alert", title: "SECURITY ALERTS", subtitle: "Prioritized detections • read-only investigation console" },
   { label: "Security Events", path: "/security-events", icon: "events", title: "SECURITY EVENTS", subtitle: "Normalized telemetry • newest first" },
   { label: "Detection Rules", path: "/detection-rules", icon: "rules", title: "DETECTION RULES", subtitle: "Rule-based detection catalog • read-only" },
-  { label: "Investigations", path: "/investigations", icon: "investigate", title: "INVESTIGATIONS", subtitle: "Planned for a later step", planned: true },
+  { label: "Investigations", path: "/investigations", icon: "investigate", title: "INVESTIGATIONS", subtitle: "Analyst case files • linked alerts • notes • local development, no authentication yet" },
   { label: "Settings", path: "/settings", icon: "settings", title: "SETTINGS", subtitle: "Application and backend information • read-only" },
 ];

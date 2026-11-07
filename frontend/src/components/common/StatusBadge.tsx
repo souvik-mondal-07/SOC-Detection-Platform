@@ -16,6 +16,9 @@ const OTHER: Record<string, string> = {
   investigating: "bg-indigo-400/10 text-indigo-300 ring-indigo-400/40",
   resolved: "bg-neon/10 text-neon ring-neon/35",
   false_positive: "bg-panel-2 text-muted ring-line-strong",
+  // Investigation statuses (open is shared with alerts)
+  in_progress: "bg-indigo-400/10 text-indigo-300 ring-indigo-400/40",
+  closed: "bg-panel-2 text-muted ring-line-strong",
   // Rule state
   enabled: "bg-neon/10 text-neon ring-neon/35",
   disabled: "bg-panel-2 text-muted ring-line-strong",

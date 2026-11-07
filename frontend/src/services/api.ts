@@ -1,8 +1,9 @@
 import type { AlertDetail, AlertListResponse, AlertQuery } from "../types/alerts";
 import type { EventFilters, EventListResponse, SecurityEvent } from "../types/events";
 import type { HealthResponse } from "../types/health";
+import type { InvestigationDetail, InvestigationListResponse, InvestigationQuery } from "../types/investigations";
 import type { RuleDetail, RuleListResponse, RuleQuery } from "../types/rules";
-import { isAlertList, isAlertResponse, isEventList, isHealth, isRecord, isRuleList, isRuleResponse, isSecurityEvent } from "./guards";
+import { isAlertList, isAlertResponse, isEventList, isHealth, isInvestigationList, isInvestigationResponse, isRecord, isRuleList, isRuleResponse, isSecurityEvent } from "./guards";
 
 const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
 
@@ -195,4 +196,66 @@ export function fetchRules(query: RuleQuery, signal?: AbortSignal): Promise<Rule
 /** GET /rules/{rule_id} */
 export async function fetchRule(ruleId: string, signal?: AbortSignal): Promise<RuleDetail> {
   return (await getJson(`/rules/${encodeURIComponent(ruleId)}`, isRuleResponse, signal)).rule;
+}
+
+// -- Investigations (Step 11). Writes are never shared or de-duplicated like GETs, and the body is always JSON. --
+
+async function sendJson<T>(method: "POST" | "PATCH" | "DELETE", path: string, body: unknown, guard: (body: unknown) => body is T): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError("Cannot reach the backend. Check that it is running and that VITE_API_BASE_URL is correct.", 0);
+  }
+  if (!response.ok) throw new ApiError(await describeFailure(response), response.status);
+  let json: unknown;
+  try {
+    json = await response.json();
+  } catch {
+    throw new ApiError("The backend returned a response that is not valid JSON.", response.status);
+  }
+  if (!guard(json)) throw new ApiError("The backend returned data in an unexpected format.", response.status);
+  return json;
+}
+
+const investigationPath = (id: string) => `/investigations/${encodeURIComponent(id)}`;
+
+/** GET /investigations: newest first. */
+export function fetchInvestigations(query: InvestigationQuery, signal?: AbortSignal): Promise<InvestigationListResponse> {
+  const { page, limit, status, title } = query;
+  return getJson(`/investigations?${toQuery({ page, limit, status, title })}`, isInvestigationList, signal);
+}
+
+/** GET /investigations/{id}: includes live context for every linked alert and all notes. */
+export async function fetchInvestigation(id: string, signal?: AbortSignal): Promise<InvestigationDetail> {
+  return (await getJson(investigationPath(id), isInvestigationResponse, signal)).investigation;
+}
+
+/** POST /investigations */
+export async function createInvestigation(title: string, alertIds: readonly string[]): Promise<InvestigationDetail> {
+  return (await sendJson("POST", "/investigations", { title: title.trim(), alert_ids: alertIds }, isInvestigationResponse)).investigation;
+}
+
+/** PATCH /investigations/{id}: title and/or investigation status only. */
+export async function updateInvestigation(id: string, changes: { title?: string; status?: string }): Promise<InvestigationDetail> {
+  return (await sendJson("PATCH", investigationPath(id), changes, isInvestigationResponse)).investigation;
+}
+
+/** POST /investigations/{id}/alerts */
+export async function linkAlerts(id: string, alertIds: readonly string[]): Promise<InvestigationDetail> {
+  return (await sendJson("POST", `${investigationPath(id)}/alerts`, { alert_ids: alertIds }, isInvestigationResponse)).investigation;
+}
+
+/** DELETE /investigations/{id}/alerts/{alert_id}: removes the link only. */
+export async function unlinkAlert(id: string, alertId: string): Promise<InvestigationDetail> {
+  return (await sendJson("DELETE", `${investigationPath(id)}/alerts/${encodeURIComponent(alertId)}`, undefined, isInvestigationResponse)).investigation;
+}
+
+/** POST /investigations/{id}/notes */
+export async function addInvestigationNote(id: string, text: string): Promise<InvestigationDetail> {
+  return (await sendJson("POST", `${investigationPath(id)}/notes`, { text: text.trim() }, isInvestigationResponse)).investigation;
 }

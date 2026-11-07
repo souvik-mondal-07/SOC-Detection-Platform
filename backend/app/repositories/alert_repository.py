@@ -85,6 +85,15 @@ class AlertRepository(BaseRepository[Alert]):
             documents = list(cursor)
         return [Alert.from_document(document) for document in documents], total
 
+    def get_alerts_by_ids(self, alert_ids: Sequence[str]) -> list[Alert]:
+        """The stored alerts among `alert_ids` (missing IDs are simply absent). Order is not guaranteed."""
+        ids = list(dict.fromkeys(alert_ids))
+        if not ids:
+            return []
+        with translate_db_errors():
+            documents = list(self._collection.find({"alert_id": {"$in": ids}}, {"_id": 0}))
+        return [Alert.from_document(document) for document in documents]
+
     def update_alert(self, alert_id: str, changes: Mapping[str, Any]) -> Alert | None:
         """Partial update (re-validated). alert_id and created_at are immutable. None if not found."""
         return self.update(alert_id, changes)
