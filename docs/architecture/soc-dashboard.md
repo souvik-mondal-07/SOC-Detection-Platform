@@ -86,7 +86,7 @@ Open http://localhost:5173. To get data, ingest synthetic events (`scripts/seed_
 ## Functionality
 
 - **Dashboard:** KPI cards (total, open, high + critical alerts, security events, detection rules), alerts by severity and status, alert creation times (labelled "sampled alerts only" when the API holds more alerts than were read), events by type and source, top 5 priority alerts, recent events, backend status.
-- **Alerts:** table (ID, title, severity, priority, status, source IP, rule, created) in the backend's fixed order (priority descending, then newest); filters for severity, status, rule ID, source IP and priority range; reset; pagination (10–100 per page); read-only details drawer with description, timestamps, priority reason and associated event IDs (linking to the event view).
+- **Alerts:** table (ID, title, severity, priority, status, source IP, rule, created) in the backend's fixed order (priority descending, then newest); filters for severity, status, rule ID, source IP and priority range; reset; pagination (10–100 per page); details drawer with description, timestamps, priority reason and associated event IDs (linking to the event view). Step 12 adds lifecycle controls (acknowledge, investigate, resolve, false positive, reopen), a status-history timeline and linked investigations; see [alert-lifecycle.md](alert-lifecycle.md).
 - **Security Events:** existing Step 9 page with exact-match filters, plus loading skeleton and `?event=` deep links.
 - **Detection Rules:** read-only list with filters, paging and a details drawer (description, conditions).
 - **Refresh:** manual button and auto-refresh (Off, 30 s, 1 min default, 5 min).

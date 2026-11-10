@@ -1,9 +1,9 @@
-import type { AlertDetail, AlertListResponse, AlertQuery } from "../types/alerts";
+import type { AlertDetail, AlertListResponse, AlertQuery, AlertStats } from "../types/alerts";
 import type { EventFilters, EventListResponse, SecurityEvent } from "../types/events";
 import type { HealthResponse } from "../types/health";
 import type { InvestigationDetail, InvestigationListResponse, InvestigationQuery } from "../types/investigations";
 import type { RuleDetail, RuleListResponse, RuleQuery } from "../types/rules";
-import { isAlertList, isAlertResponse, isEventList, isHealth, isInvestigationList, isInvestigationResponse, isRecord, isRuleList, isRuleResponse, isSecurityEvent } from "./guards";
+import { isAlertList, isAlertResponse, isAlertStats, isEventList, isHealth, isInvestigationList, isInvestigationResponse, isRecord, isRuleList, isRuleResponse, isSecurityEvent } from "./guards";
 
 const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
 
@@ -187,6 +187,16 @@ export async function fetchAlert(alertId: string, signal?: AbortSignal): Promise
   return (await getJson(`/alerts/${encodeURIComponent(alertId)}`, isAlertResponse, signal)).alert;
 }
 
+/** GET /alerts/stats: exact lifecycle, severity and active counts across all alerts. */
+export function fetchAlertStats(signal?: AbortSignal): Promise<AlertStats> {
+  return getJson("/alerts/stats", isAlertStats, signal);
+}
+
+/** GET /investigations?alert_id=...: investigations that reference this alert (investigation status is not alert status). */
+export function fetchInvestigationsForAlert(alertId: string, signal?: AbortSignal): Promise<InvestigationListResponse> {
+  return getJson(`/investigations?${toQuery({ alert_id: alertId, limit: 20 })}`, isInvestigationList, signal);
+}
+
 /** GET /rules */
 export function fetchRules(query: RuleQuery, signal?: AbortSignal): Promise<RuleListResponse> {
   const { page, limit, category, severity, enabled, name } = query;
@@ -258,4 +268,18 @@ export async function unlinkAlert(id: string, alertId: string): Promise<Investig
 /** POST /investigations/{id}/notes */
 export async function addInvestigationNote(id: string, text: string): Promise<InvestigationDetail> {
   return (await sendJson("POST", `${investigationPath(id)}/notes`, { text: text.trim() }, isInvestigationResponse)).investigation;
+}
+
+// -- Alert lifecycle (Step 12). Resolves only after the backend has confirmed the change; callers must not show success earlier. --
+
+/** PATCH /alerts/{id}/status. `reason` is the resolution note, false-positive reason or reopen reason. */
+export async function changeAlertStatus(alertId: string, status: string, reason?: string): Promise<AlertDetail> {
+  const trimmed = reason?.trim();
+  const body = trimmed ? { status, reason: trimmed } : { status };
+  return (await sendJson("PATCH", `/alerts/${encodeURIComponent(alertId)}/status`, body, isAlertResponse)).alert;
+}
+
+/** POST /alerts/{id}/acknowledge: status stays open. */
+export async function acknowledgeAlert(alertId: string): Promise<AlertDetail> {
+  return (await sendJson("POST", `/alerts/${encodeURIComponent(alertId)}/acknowledge`, undefined, isAlertResponse)).alert;
 }

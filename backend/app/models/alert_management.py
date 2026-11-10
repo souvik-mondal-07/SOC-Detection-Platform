@@ -6,9 +6,9 @@ rule_id, severity, status or timestamps, so a client cannot set them.
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models.alert import Alert
+from app.models.alert import MAX_STATUS_REASON_LENGTH, Alert, AlertStatus
 
 
 class AlertSummary(BaseModel):
@@ -24,12 +24,23 @@ class AlertSummary(BaseModel):
 class AlertListItem(AlertSummary):
     source_ip: str | None = None
     created_at: datetime
+    acknowledged_at: datetime | None = None
+
+
+class StatusHistoryItem(BaseModel):
+    action: str
+    previous_status: str
+    new_status: str
+    timestamp: datetime
+    reason: str | None = None
 
 
 class AlertDetail(AlertListItem):
     description: str
     event_ids: list[str]
     updated_at: datetime
+    resolution_note: str | None = None
+    status_history: list[StatusHistoryItem] = Field(default_factory=list)  # oldest first
 
 
 def to_detail(alert: Alert) -> AlertDetail:
@@ -79,3 +90,29 @@ class AlertListResponse(BaseModel):
 class AlertResponse(BaseModel):
     success: bool = True
     alert: AlertDetail
+
+
+class AlertStatusUpdateRequest(BaseModel):
+    """PATCH /alerts/{id}/status. Only these two fields exist; anything else (severity, priority_score, ...) is a 422."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    status: AlertStatus
+    reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_LENGTH, description="Resolution note / false-positive reason / reopen reason")
+
+    @field_validator("reason")
+    @classmethod
+    def _blank_is_none(cls, value: str | None) -> str | None:
+        return value or None  # whitespace-only becomes None; the service decides whether a reason is required
+
+
+class AlertStatsResponse(BaseModel):
+    """Exact counts computed by MongoDB over all alerts (never derived from a page of results)."""
+
+    success: bool = True
+    total: int
+    by_status: dict[str, int]
+    by_severity: dict[str, int]
+    active: int  # open + investigating
+    high_critical_active: int  # severity high/critical and status open/investigating
+    acknowledged_open: int  # open alerts that have been acknowledged

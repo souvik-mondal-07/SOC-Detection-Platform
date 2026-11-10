@@ -41,7 +41,7 @@ All models are Pydantic classes in `backend/app/models/`. They reject unknown fi
 
 The model checks `metadata` keys, not free text. Parsers written in Step 4 must not copy credentials into `message`.
 
-**`alerts`** (`models/alert.py`): `alert_id`, `rule_id` (format `AUTH-001`), `title`, `description`, `severity` (`low` `medium` `high` `critical`), `status` (`open` `investigating` `resolved` `false_positive`, default `open`), optional `source_ip`, `event_ids` (at least one, no duplicates), `created_at`, `updated_at` (cannot be earlier than `created_at`).
+**`alerts`** (`models/alert.py`): `alert_id`, `rule_id` (format `AUTH-001`), `title`, `description`, `severity` (`low` `medium` `high` `critical`), `status` (`open` `investigating` `resolved` `false_positive`, default `open`), optional `source_ip`, `event_ids` (at least one, no duplicates), `created_at`, `updated_at` (cannot be earlier than `created_at`). Step 12 adds three optional fields: `acknowledged_at`, `resolution_note` and `status_history` (see [alert-lifecycle.md](alert-lifecycle.md)); older documents without them still load. No new indexes were needed.
 
 **`detection_rules`** (`models/rule.py`): `rule_id`, `name`, `category` (`authentication` `web` `network` `privilege` `correlation`), `description`, `severity`, `enabled` (true/false only, default true), `conditions`, timestamps. `conditions` is a free-form object that must be non-empty and use MongoDB-safe keys. The detection engine will define how it is interpreted, so adding rules or rule shapes needs no schema migration.
 

@@ -2,7 +2,7 @@
 
 Rule-Based Security Event Detection and Alerting System for Automated Identification of Suspicious Activities.
 
-**Status: Step 11 (alert investigation workflow) on top of Steps 1–10.** The backend accepts security events as JSON or as raw logs (Linux auth, web access, Windows event, network), validates and normalizes them, stores them in MongoDB, and returns them through a small read API. A rule-based detection engine can be run on stored events on request; it returns detection results only. Alerts can be generated from detection matches (Step 8) and are prioritised with a 0–100 score (Step 9). The React dashboard (Step 10) shows alerts, security events and detection rules in read-only list and detail views, with Recharts visualisations. Analysts can open investigations for alerts, link alerts, add notes and track investigation status (Step 11, [details](docs/architecture/alert-investigation.md)). There is no authentication yet, so the API is for local development only.
+**Status: Step 12 (alert lifecycle) on top of Steps 1–11.** The backend accepts security events as JSON or as raw logs (Linux auth, web access, Windows event, network), validates and normalizes them, stores them in MongoDB, and returns them through a small read API. A rule-based detection engine can be run on stored events on request; it returns detection results only. Alerts can be generated from detection matches (Step 8) and are prioritised with a 0–100 score (Step 9). The React dashboard (Step 10) shows alerts, security events and detection rules in read-only list and detail views, with Recharts visualisations. Analysts can open investigations for alerts, link alerts, add notes and track investigation status (Step 11, [details](docs/architecture/alert-investigation.md)). Analysts can acknowledge alerts, move them into investigation, resolve them, mark false positives and reopen them, with a status history (Step 12, [details](docs/architecture/alert-lifecycle.md)). There is no authentication yet, so the API is for local development only.
 
 **Stack:** FastAPI, React + TypeScript + Vite, Tailwind CSS, MongoDB (PyMongo), Recharts, Pytest, Vitest.
 
@@ -178,7 +178,7 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/detection/evaluate/EVENT_ID
 
 ## Alert Generation
 
-Matched detection results can be turned into persistent alerts (collection `alerts`). `POST /api/v1/alerts/generate/{event_id}` and `POST /api/v1/alerts/generate` run detection and store one `open` alert per matching rule; severity comes from the rule, events are referenced by ID, and repeat evaluations of the same burst are deduplicated. `GET /api/v1/alerts` (filters `status`, `severity`, `rule_id`, `source_ip`, `priority_min`, `priority_max`; `page`, `limit`) and `GET /api/v1/alerts/{alert_id}` read them. Status management, investigation workflow and the alerts UI are not implemented yet. See [docs/architecture/alert-generation.md](docs/architecture/alert-generation.md).
+Matched detection results can be turned into persistent alerts (collection `alerts`). `POST /api/v1/alerts/generate/{event_id}` and `POST /api/v1/alerts/generate` run detection and store one `open` alert per matching rule; severity comes from the rule, events are referenced by ID, and repeat evaluations of the same burst are deduplicated. `GET /api/v1/alerts` (filters `status`, `severity`, `rule_id`, `source_ip`, `priority_min`, `priority_max`; `page`, `limit`) and `GET /api/v1/alerts/{alert_id}` read them. `PATCH /api/v1/alerts/{alert_id}/status`, `POST /api/v1/alerts/{alert_id}/acknowledge` and `GET /api/v1/alerts/stats` provide the alert lifecycle (Step 12, [docs/architecture/alert-lifecycle.md](docs/architecture/alert-lifecycle.md)). See also [docs/architecture/alert-generation.md](docs/architecture/alert-generation.md).
 
 ## Alert Prioritization
 
@@ -210,8 +210,8 @@ The React app uses React Router with one shared layout (sidebar and top bar). Pa
 
 | Route | Page | Backend data |
 | --- | --- | --- |
-| `/dashboard` | Dashboard | KPI cards, charts and top alerts from `GET /alerts`, `GET /events`, `GET /rules`, `GET /health` |
-| `/alerts` | Alerts | `GET /alerts` (filters, paging) and `GET /alerts/{id}`; read-only |
+| `/dashboard` | Dashboard | KPI cards, charts and top alerts from `GET /alerts/stats`, `GET /alerts`, `GET /events`, `GET /rules`, `GET /health` |
+| `/alerts` | Alerts | `GET /alerts` (filters, paging), `GET /alerts/{id}`, and the lifecycle calls `PATCH /alerts/{id}/status` and `POST /alerts/{id}/acknowledge` |
 | `/security-events` | Security Events | `GET /events` (filters: event type, status, source, source IP, limit) and `GET /events/{id}` |
 | `/detection-rules` | Detection Rules | `GET /rules` and `GET /rules/{id}`; read-only |
 | `/investigations` | Investigations | Planned for a later step (disabled in the sidebar) |

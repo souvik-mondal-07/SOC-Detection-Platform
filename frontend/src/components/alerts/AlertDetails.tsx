@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAlert } from "../../hooks/useAlerts";
 import DetailDrawer from "../common/DetailDrawer";
@@ -6,20 +6,35 @@ import DetailList from "../common/DetailList";
 import ErrorState from "../common/ErrorState";
 import { formatTimestamp } from "../common/format";
 import StatusBadge from "../common/StatusBadge";
+import type { AlertDetail } from "../../types/alerts";
+import AlertInvestigations from "./AlertInvestigations";
+import AlertLifecyclePanel from "./AlertLifecyclePanel";
+import StatusTimeline from "./StatusTimeline";
 
 const EVENT_PREVIEW = 25;
 
-/** Read-only. Loads GET /alerts/{id} because the list response has no description or event IDs. */
-export default function AlertDetails({ alertId, onClose }: { alertId: string; onClose: () => void }) {
+interface Props {
+  alertId: string;
+  onClose: () => void;
+  /** Called after the backend confirmed a lifecycle change, so the page can refresh its list and dashboard metrics. */
+  onChanged?: () => void;
+}
+
+/** Loads GET /alerts/{id} because the list response has no description, event IDs or history. Hosts the lifecycle controls. */
+export default function AlertDetails({ alertId, onClose, onChanged }: Props) {
   const state = useAlert(alertId);
   const [showAll, setShowAll] = useState(false);
+  // The alert exactly as the backend returned it after a change; shown until the follow-up reload arrives.
+  const [confirmed, setConfirmed] = useState<AlertDetail | null>(null);
+  const { updatedAt, reload } = state;
+  useEffect(() => setConfirmed(null), [alertId, updatedAt]);
 
   return (
     <DetailDrawer title={`Alert ${alertId}`} onClose={onClose}>
       {state.kind === "loading" && <p className="text-sm text-muted" role="status">Loading alert…</p>}
       {state.kind === "error" && <ErrorState title="Could not load this alert" message={state.message} onRetry={state.reload} />}
       {state.kind === "loaded" && (() => {
-        const alert = state.data;
+        const alert = confirmed && confirmed.alert_id === state.data.alert_id ? confirmed : state.data;
         const ids = Array.isArray(alert.event_ids) ? alert.event_ids : [];
         const shown = showAll ? ids : ids.slice(0, EVENT_PREVIEW);
         return (
@@ -30,7 +45,6 @@ export default function AlertDetails({ alertId, onClose }: { alertId: string; on
                 ["Severity", <StatusBadge key="s" value={alert.severity} />],
                 ["Priority score", <span key="p" className="font-semibold tabular-nums">{alert.priority_score} / 100</span>],
                 ["Priority reason", alert.priority_reason ?? "—"],
-                ["Status", <StatusBadge key="st" value={alert.status} />],
                 ["Description", alert.description || "—"],
                 ["Rule ID", <span key="r" className="font-mono text-xs">{alert.rule_id}</span>],
                 ["Source IP", <span key="ip" className="font-mono text-xs">{alert.source_ip ?? "—"}</span>],
@@ -38,6 +52,19 @@ export default function AlertDetails({ alertId, onClose }: { alertId: string; on
                 ["Updated", formatTimestamp(alert.updated_at)],
               ]}
             />
+            <AlertLifecyclePanel
+              alert={alert}
+              onChanged={(updated) => {
+                setConfirmed(updated);
+                reload();
+                onChanged?.();
+              }}
+            />
+            <section aria-label="Status history">
+              <h4 className="text-sm font-semibold text-fg">Status history</h4>
+              <StatusTimeline history={alert.status_history} />
+            </section>
+            <AlertInvestigations alertId={alert.alert_id} />
             <section aria-label="Associated events">
               <h4 className="text-sm font-semibold text-fg">Associated events ({ids.length})</h4>
               {ids.length === 0 ? (

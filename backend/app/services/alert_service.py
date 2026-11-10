@@ -20,7 +20,7 @@ from pydantic import ValidationError
 
 from app.core.errors import DuplicateRecordError
 from app.detection.result import DetectionResult, EventDetection
-from app.models.alert import Alert, AlertStatus
+from app.models.alert import ALLOWED_TRANSITIONS, Alert, AlertStatus, StatusAction, reason_required
 from app.models.common import ID_PATTERN, utc_now
 from app.models.event import SecurityEvent
 from app.models.rule import DetectionRule
@@ -64,6 +64,32 @@ class AlertIdGenerationError(AlertServiceError):
     message = "Could not allocate a unique alert ID"
 
 
+# -- Step 12: lifecycle errors. `status_code` is the HTTP status the route uses; messages are safe to show to clients. --
+
+class AlertNotFoundError(AlertServiceError):
+    error_code = "ALERT_NOT_FOUND"
+    message = "Alert not found"
+    status_code = 404
+
+
+class InvalidStatusTransitionError(AlertServiceError):
+    error_code = "INVALID_STATUS_TRANSITION"
+    message = "This status change is not allowed"
+    status_code = 409
+
+
+class StatusConflictError(AlertServiceError):
+    error_code = "STATUS_CONFLICT"
+    message = "The alert was changed by someone else. Reload it and try again"
+    status_code = 409
+
+
+class ReasonRequiredError(AlertServiceError):
+    error_code = "REASON_REQUIRED"
+    message = "A reason is required for this status change"
+    status_code = 422
+
+
 @dataclass
 class GenerationOutcome:
     created: list[Alert] = field(default_factory=list)
@@ -87,6 +113,65 @@ class AlertService:
         self._events = event_repository
         self._detection = detection_service or DetectionService(event_repository, rule_repository)
         self._priority = priority_service or PriorityService()
+
+    # -- Step 12: lifecycle ------------------------------------------------------------------------
+    # Lifecycle changes touch only status, updated_at, acknowledged_at, resolution_note and status_history. They never run
+    # detection, create alerts, or change severity, priority, rule, source IP or event references.
+    # Authentication does not exist yet, so history entries carry no actor.
+
+    def change_status(self, alert_id: str, new_status: AlertStatus | str, reason: str | None = None) -> Alert:
+        """Move an alert to `new_status` if the transition is allowed. Atomic: a concurrent change makes this fail, never overwrite."""
+        target = AlertStatus(new_status).value
+        alert = self._require_alert(alert_id)
+        current = AlertStatus(alert.status).value
+        if target not in ALLOWED_TRANSITIONS[current]:
+            if target == current:
+                raise InvalidStatusTransitionError(f"The alert is already {_label(current)}")
+            raise InvalidStatusTransitionError(f"An alert that is {_label(current)} cannot be changed to {_label(target)}")
+        reason = (reason or "").strip() or None
+        if reason is None and reason_required(current, target):
+            if current in (AlertStatus.RESOLVED.value, AlertStatus.FALSE_POSITIVE.value):
+                raise ReasonRequiredError("A reason is required to reopen an alert")
+            raise ReasonRequiredError("A resolution note is required" if target == AlertStatus.RESOLVED.value else "A false-positive reason is required")
+
+        now = max(utc_now(), alert.created_at)  # updated_at may never be earlier than created_at
+        changes: dict = {"status": target, "updated_at": now}
+        if target in (AlertStatus.RESOLVED.value, AlertStatus.FALSE_POSITIVE.value):
+            changes["resolution_note"] = reason
+        elif current in (AlertStatus.RESOLVED.value, AlertStatus.FALSE_POSITIVE.value):
+            changes.update(resolution_note=None, acknowledged_at=None)  # reopened: back in the triage queue, history keeps the old note
+        entry = {"action": StatusAction.STATUS_CHANGE.value, "previous_status": current, "new_status": target, "timestamp": now, "reason": reason}
+        if not self._alerts.apply_transition(alert_id, expected_status=current, changes=changes, history_entry=entry):
+            self._raise_conflict(alert_id)
+        logger.info("Alert %s: %s -> %s", alert_id, current, target)
+        return self._require_alert(alert_id)
+
+    def acknowledge(self, alert_id: str) -> Alert:
+        """Record that an analyst has seen an open alert. The status stays `open`."""
+        alert = self._require_alert(alert_id)
+        if alert.status != AlertStatus.OPEN.value:
+            raise InvalidStatusTransitionError(f"Only open alerts can be acknowledged; this alert is {_label(alert.status)}")
+        if alert.acknowledged_at is not None:
+            raise InvalidStatusTransitionError("The alert is already acknowledged")
+        now = max(utc_now(), alert.created_at)
+        entry = {"action": StatusAction.ACKNOWLEDGED.value, "previous_status": "open", "new_status": "open", "timestamp": now, "reason": None}
+        applied = self._alerts.apply_transition(
+            alert_id, expected_status="open", changes={"acknowledged_at": now, "updated_at": now}, history_entry=entry, require_unacknowledged=True
+        )
+        if not applied:
+            self._raise_conflict(alert_id)
+        logger.info("Alert %s acknowledged", alert_id)
+        return self._require_alert(alert_id)
+
+    def _require_alert(self, alert_id: str) -> Alert:
+        alert = self._alerts.get_alert_by_id(alert_id)
+        if alert is None:
+            raise AlertNotFoundError()
+        return alert
+
+    def _raise_conflict(self, alert_id: str) -> None:
+        self._require_alert(alert_id)  # deleted in the meantime -> 404
+        raise StatusConflictError()
 
     # -- generation from stored events -----------------------------------------------
 
@@ -194,6 +279,10 @@ class AlertService:
             except DuplicateRecordError:
                 continue  # another writer took this ID; pick the next one
         raise AlertIdGenerationError()
+
+
+def _label(status: str) -> str:
+    return status.replace("_", " ")
 
 
 def _source_ip(result: DetectionResult, event: SecurityEvent | None) -> str | None:

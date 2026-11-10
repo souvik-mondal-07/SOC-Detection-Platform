@@ -15,6 +15,8 @@ from app.models.alert_management import (
     AlertGenerationResponse,
     AlertListResponse,
     AlertResponse,
+    AlertStatsResponse,
+    AlertStatusUpdateRequest,
     BatchAlertGenerationResponse,
     FailedEvent,
     to_detail,
@@ -111,9 +113,46 @@ def list_alerts(
     return AlertListResponse(page=page, limit=limit, total=total, count=len(alerts), alerts=[to_list_item(a) for a in alerts])
 
 
+@router.get("/stats", response_model=AlertStatsResponse)
+def alert_stats(repository: RepositoryDep) -> AlertStatsResponse:
+    """Exact lifecycle and severity counts across all alerts. Declared before /{alert_id} so "stats" is not read as an ID."""
+    return AlertStatsResponse(**repository.get_stats())
+
+
 @router.get("/{alert_id}", response_model=AlertResponse)
 def get_alert(repository: RepositoryDep, alert_id: str = Path(min_length=1, max_length=64, pattern=ID_PATTERN)) -> AlertResponse:
     alert = repository.get_alert_by_id(alert_id)
     if alert is None:
         raise HTTPException(status_code=404, detail="Alert not found")
+    return AlertResponse(alert=to_detail(alert))
+
+
+AlertIdPath = Annotated[str, Path(min_length=1, max_length=64, pattern=ID_PATTERN)]
+
+
+def _lifecycle_error(exc: AlertServiceError) -> HTTPException:
+    return HTTPException(status_code=getattr(exc, "status_code", 409), detail=exc.message)
+
+
+# NO AUTHENTICATION YET: the two routes below change alert state and are for local development only.
+@router.patch("/{alert_id}/status", response_model=AlertResponse)
+def update_alert_status(alert_id: AlertIdPath, payload: AlertStatusUpdateRequest, service: ServiceDep) -> AlertResponse:
+    """Move an alert through its lifecycle (investigating, resolved, false_positive, or back to open).
+
+    404 unknown alert, 409 disallowed transition or concurrent change, 422 invalid status or missing reason.
+    """
+    try:
+        alert = service.change_status(alert_id, payload.status, payload.reason)
+    except AlertServiceError as exc:
+        raise _lifecycle_error(exc) from None
+    return AlertResponse(alert=to_detail(alert))
+
+
+@router.post("/{alert_id}/acknowledge", response_model=AlertResponse)
+def acknowledge_alert(alert_id: AlertIdPath, service: ServiceDep) -> AlertResponse:
+    """Acknowledge an open alert. The status stays `open`; acknowledged_at and a history entry are recorded."""
+    try:
+        alert = service.acknowledge(alert_id)
+    except AlertServiceError as exc:
+        raise _lifecycle_error(exc) from None
     return AlertResponse(alert=to_detail(alert))

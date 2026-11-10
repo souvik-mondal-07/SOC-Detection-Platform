@@ -1,4 +1,5 @@
 import type { AlertListItem } from "../../types/alerts";
+import AlertRowActions, { type QuickAction } from "./AlertRowActions";
 import { formatTimestamp } from "../common/format";
 import PriorityScore from "../common/PriorityScore";
 import StatusBadge, { SEVERITY_EDGE } from "../common/StatusBadge";
@@ -7,12 +8,15 @@ interface AlertTableProps {
   alerts: readonly AlertListItem[];
   selectedId: string | null;
   onSelect: (alertId: string) => void;
+  /** Optional lifecycle shortcuts (acknowledge / start investigating). Omitted where the table is read-only. */
+  onQuickAction?: (alert: AlertListItem, action: QuickAction) => void;
+  actionsBusy?: boolean;
 }
 
 const TH = "px-3 py-2.5 text-left font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-muted";
 const TD = "px-3 py-2 align-top text-sm text-body";
 
-export default function AlertTable({ alerts, selectedId, onSelect }: AlertTableProps) {
+export default function AlertTable({ alerts, selectedId, onSelect, onQuickAction, actionsBusy = false }: AlertTableProps) {
   return (
     <div className="panel overflow-x-auto">
       <table className="min-w-full divide-y divide-line">
@@ -27,6 +31,7 @@ export default function AlertTable({ alerts, selectedId, onSelect }: AlertTableP
             <th scope="col" className={TH}>Source IP</th>
             <th scope="col" className={TH}>Rule</th>
             <th scope="col" className={TH}>Created</th>
+            {onQuickAction && <th scope="col" className={TH}>Actions</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-line/60">
@@ -50,10 +55,16 @@ export default function AlertTable({ alerts, selectedId, onSelect }: AlertTableP
               </td>
               <td className={TD}><StatusBadge value={alert.severity} /></td>
               <td className={TD}><PriorityScore score={alert.priority_score} severity={alert.severity} /></td>
-              <td className={TD}><StatusBadge value={alert.status} /></td>
+              <td className={TD}>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <StatusBadge value={alert.status} />
+                  {alert.status === "open" && alert.acknowledged_at && <span className="font-mono text-[10px] uppercase tracking-wider text-muted" title={`Acknowledged ${formatTimestamp(alert.acknowledged_at)}`}>ack</span>}
+                </div>
+              </td>
               <td className={`${TD} whitespace-nowrap font-mono text-xs text-fg`}>{alert.source_ip ?? "—"}</td>
               <td className={`${TD} whitespace-nowrap font-mono text-xs text-cyan`}>{alert.rule_id}</td>
               <td className={`${TD} whitespace-nowrap font-mono text-xs tabular-nums text-muted`}>{formatTimestamp(alert.created_at)}</td>
+              {onQuickAction && <td className={TD}><AlertRowActions alert={alert} busy={actionsBusy} onAction={onQuickAction} /></td>}
             </tr>
           ))}
         </tbody>

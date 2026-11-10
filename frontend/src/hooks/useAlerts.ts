@@ -1,4 +1,4 @@
-import { fetchAlert, fetchAlerts } from "../services/api";
+import { fetchAlert, fetchAlerts, fetchInvestigationsForAlert } from "../services/api";
 import type { AlertQuery } from "../types/alerts";
 import { useAsync } from "./useAsync";
 import { useRefreshKey } from "./useRefresh";
@@ -12,4 +12,9 @@ export function useAlerts(query: AlertQuery) {
 
 export function useAlert(alertId: string) {
   return useAsync((signal) => fetchAlert(alertId, signal), [alertId]);
+}
+
+/** Investigations that reference one alert. Reloaded on every refresh so a newly linked investigation appears. */
+export function useAlertInvestigations(alertId: string) {
+  return useAsync((signal) => fetchInvestigationsForAlert(alertId, signal), [alertId]);
 }

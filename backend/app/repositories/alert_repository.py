@@ -7,7 +7,7 @@ from pymongo import ASCENDING, DESCENDING, IndexModel
 
 from app.core.database import COLLECTION_ALERTS
 from app.core.severity import MAX_PRIORITY_SCORE, MIN_PRIORITY_SCORE
-from app.models.alert import Alert
+from app.models.alert import MAX_STATUS_HISTORY, Alert, AlertStatus
 from app.repositories.base import BaseRepository, translate_db_errors
 
 MAX_ALERT_PAGE_LIMIT = 100  # cap for one page of the alert API
@@ -97,6 +97,74 @@ class AlertRepository(BaseRepository[Alert]):
     def update_alert(self, alert_id: str, changes: Mapping[str, Any]) -> Alert | None:
         """Partial update (re-validated). alert_id and created_at are immutable. None if not found."""
         return self.update(alert_id, changes)
+
+    # -- Step 12: lifecycle ----------------------------------------------------------------------
+
+    @staticmethod
+    def _status_filter(status: str) -> dict[str, Any]:
+        # Alerts stored without a status are read as open by the Alert model, so they match "open" here too.
+        if status == AlertStatus.OPEN.value:
+            return {"$or": [{"status": "open"}, {"status": {"$exists": False}}]}
+        return {"status": status}
+
+    def apply_transition(
+        self,
+        alert_id: str,
+        *,
+        expected_status: str,
+        changes: Mapping[str, Any],
+        history_entry: Mapping[str, Any],
+        require_unacknowledged: bool = False,
+    ) -> bool:
+        """Compare-and-set in ONE atomic update.
+
+        The write only happens if the alert still has `expected_status` (and, for acknowledgement, no acknowledged_at yet),
+        so two concurrent requests can never both apply. `changes` is applied with $set and `history_entry` is appended
+        (newest MAX_STATUS_HISTORY kept). Only the fields in `changes` are touched: severity, priority, rule and events never are.
+        Returns False when nothing matched (alert missing, or its status changed first).
+        """
+        query: dict[str, Any] = {"alert_id": alert_id, **self._status_filter(expected_status)}
+        if require_unacknowledged:
+            query["acknowledged_at"] = None  # matches null or missing
+        update = {
+            "$set": dict(changes),
+            "$push": {"status_history": {"$each": [dict(history_entry)], "$slice": -MAX_STATUS_HISTORY}},
+        }
+        with translate_db_errors():
+            result = self._collection.update_one(query, update)
+        return result.matched_count == 1
+
+    def get_stats(self) -> dict[str, Any]:
+        """Exact alert counts, computed inside MongoDB with one aggregation plus one count."""
+        with translate_db_errors():
+            groups = list(
+                self._collection.aggregate(
+                    [{"$group": {"_id": {"status": "$status", "severity": "$severity"}, "count": {"$sum": 1}}}]
+                )
+            )
+            acknowledged_open = self._collection.count_documents({**self._status_filter("open"), "acknowledged_at": {"$ne": None}})
+        by_status = {status.value: 0 for status in AlertStatus}
+        by_severity = {"low": 0, "medium": 0, "high": 0, "critical": 0}
+        active = high_critical_active = 0
+        for group in groups:
+            status = group["_id"].get("status") or "open"  # stored without a status = open
+            severity = group["_id"].get("severity")
+            count = group["count"]
+            by_status[status] = by_status.get(status, 0) + count
+            if severity is not None:
+                by_severity[severity] = by_severity.get(severity, 0) + count
+            if status in ("open", "investigating"):
+                active += count
+                if severity in ("high", "critical"):
+                    high_critical_active += count
+        return {
+            "total": sum(by_status.values()),
+            "by_status": by_status,
+            "by_severity": by_severity,
+            "active": active,
+            "high_critical_active": high_critical_active,
+            "acknowledged_open": acknowledged_open,
+        }
 
     def find_open_duplicate(self, rule_id: str, source_ip: str | None, event_ids: Sequence[str]) -> Alert | None:
         """An open alert from the same rule and source IP that shares at least one event.

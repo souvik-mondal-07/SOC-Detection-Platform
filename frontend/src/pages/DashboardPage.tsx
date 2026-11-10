@@ -68,21 +68,16 @@ export default function DashboardPage() {
         {(data) => <ThreatPosture bySeverity={data.bySeverity} total={data.total} />}
       </SectionState>
 
-      <section aria-label="Key metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section aria-label="Key metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total alerts" icon="alert" tone="cyan"
           value={alertValue((c) => c.total)} description={alertDescription("All stored alerts")}
           loading={counts.kind === "loading"} unavailable={counts.kind === "error"}
         />
         <StatCard
-          label="Open alerts" icon="inbox" tone={counts.kind === "loaded" && (counts.data.byStatus.open ?? 0) > 0 ? "medium" : "muted"}
-          value={alertValue((c) => c.byStatus.open ?? 0)} description={alertDescription("Status: open")}
-          loading={counts.kind === "loading"} unavailable={counts.kind === "error"}
-        />
-        <StatCard
-          label="High + critical" icon="crosshair"
-          tone={counts.kind === "loaded" && (counts.data.bySeverity.critical ?? 0) > 0 ? "critical" : counts.kind === "loaded" && (counts.data.bySeverity.high ?? 0) > 0 ? "high" : "muted"}
-          value={alertValue((c) => (c.bySeverity.high ?? 0) + (c.bySeverity.critical ?? 0))} description={alertDescription("High and critical, all statuses")}
+          label="High + critical active" icon="crosshair"
+          tone={counts.kind === "loaded" && counts.data.highCriticalActive > 0 ? ((counts.data.bySeverity.critical ?? 0) > 0 ? "critical" : "high") : "muted"}
+          value={alertValue((c) => c.highCriticalActive)} description={alertDescription("High or critical, still open or investigating")}
           loading={counts.kind === "loading"} unavailable={counts.kind === "error"}
         />
         <StatCard
@@ -95,6 +90,30 @@ export default function DashboardPage() {
           value={rulesValue}
           description={rules.kind === "error" ? rules.message : rules.kind === "loaded" ? `${rules.data.enabled} enabled` : "Configured rules"}
           loading={rules.kind === "loading"} unavailable={rules.kind === "error"}
+        />
+      </section>
+
+      <section aria-label="Alert lifecycle" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Open alerts" icon="inbox" tone={counts.kind === "loaded" && (counts.data.byStatus.open ?? 0) > 0 ? "medium" : "muted"}
+          value={alertValue((c) => c.byStatus.open ?? 0)}
+          description={counts.kind === "loaded" ? `${counts.data.acknowledgedOpen} acknowledged` : alertDescription("Status: open")}
+          loading={counts.kind === "loading"} unavailable={counts.kind === "error"}
+        />
+        <StatCard
+          label="Investigating" icon="crosshair" tone="cyan"
+          value={alertValue((c) => c.byStatus.investigating ?? 0)} description={alertDescription("Alert status: investigating")}
+          loading={counts.kind === "loading"} unavailable={counts.kind === "error"}
+        />
+        <StatCard
+          label="Resolved" icon="alert" tone="neon"
+          value={alertValue((c) => c.byStatus.resolved ?? 0)} description={alertDescription("Alert status: resolved")}
+          loading={counts.kind === "loading"} unavailable={counts.kind === "error"}
+        />
+        <StatCard
+          label="False positives" icon="rules" tone="muted"
+          value={alertValue((c) => c.byStatus.false_positive ?? 0)} description={alertDescription("Alert status: false positive")}
+          loading={counts.kind === "loading"} unavailable={counts.kind === "error"}
         />
       </section>
 
@@ -153,7 +172,7 @@ export default function DashboardPage() {
 
       <RecentEventsPanel />
       <BackendStatusPanel backend={backend} />
-      {selectedAlert && <AlertDetails alertId={selectedAlert} onClose={() => setSelectedAlert(null)} />}
+      {selectedAlert && <AlertDetails alertId={selectedAlert} onClose={() => setSelectedAlert(null)} onChanged={refresh} />}
     </>
   );
 }

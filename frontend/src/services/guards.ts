@@ -1,6 +1,6 @@
 // Runtime checks for backend responses. They verify every field the tables, detail views and charts read, so a response in
 // an unexpected format becomes a readable ApiError instead of a crash while rendering. Optional fields may be missing or null.
-import type { AlertDetail, AlertListItem, AlertListResponse, AlertResponse } from "../types/alerts";
+import type { AlertDetail, AlertListItem, AlertListResponse, AlertResponse, AlertStats, StatusHistoryEntry } from "../types/alerts";
 import type { SecurityEvent, EventListResponse } from "../types/events";
 import type { HealthResponse } from "../types/health";
 import type { InvestigationDetail, InvestigationListItem, InvestigationListResponse, InvestigationNote, InvestigationResponse, LinkedAlert } from "../types/investigations";
@@ -40,12 +40,28 @@ export function isAlertListItem(b: unknown): b is AlertListItem {
     isRecord(b) &&
     allStrings(b, ["alert_id", "rule_id", "title", "severity", "status", "created_at"]) &&
     isScore(b.priority_score) &&
-    allOptionalStrings(b, ["priority_reason", "source_ip"])
+    allOptionalStrings(b, ["priority_reason", "source_ip", "acknowledged_at"])
   );
 }
 
+export function isStatusHistoryEntry(b: unknown): b is StatusHistoryEntry {
+  return isRecord(b) && allStrings(b, ["action", "previous_status", "new_status", "timestamp"]) && isOptionalString(b.reason);
+}
+
 export function isAlertDetail(b: unknown): b is AlertDetail {
-  return isAlertListItem(b) && allStrings(b as unknown as Record<string, unknown>, ["description", "updated_at"]) && isStringArray((b as unknown as Record<string, unknown>).event_ids);
+  if (!isAlertListItem(b)) return false;
+  const r = b as unknown as Record<string, unknown>;
+  // status_history is required: the backend always sends it (an empty list for alerts that never changed).
+  return allStrings(r, ["description", "updated_at"]) && isStringArray(r.event_ids) && isOptionalString(r.resolution_note) && Array.isArray(r.status_history) && r.status_history.every(isStatusHistoryEntry);
+}
+
+const isCountMap = (v: unknown): v is Record<string, number> => isRecord(v) && Object.values(v).every(isCount);
+
+export function isAlertStats(b: unknown): b is AlertStats {
+  return (
+    isRecord(b) && isCount(b.total) && isCountMap(b.by_status) && isCountMap(b.by_severity) &&
+    isCount(b.active) && isCount(b.high_critical_active) && isCount(b.acknowledged_open)
+  );
 }
 
 export function isAlertList(b: unknown): b is AlertListResponse {
